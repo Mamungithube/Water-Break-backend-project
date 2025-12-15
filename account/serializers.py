@@ -125,9 +125,20 @@ class RegistrationSerializer(serializers.ModelSerializer):
         Profile.objects.create(user=user, otp=otp)
         # Send OTP via email
         subject = 'Your OTP Code - Verify Your Account'
-        message = f'Your OTP for account verification is: {otp}'
-        email_from = settings.EMAIL_HOST_USER
-        recipient_list = [user.email]
-        send_mail(subject, message, email_from, recipient_list)
+        html_content = render_to_string('send_code.html', {'otp': otp, 'user': user}) 
+        
+        try:
+            msg = EmailMessage(
+                subject=subject, 
+                body=html_content, 
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[user.email], 
+            )
+            msg.content_subtype = "html" 
+            msg.send()
+
+        except Exception as e:         
+            print(f"Failed to send email to {user.email}: {str(e)}")
+            pass 
+            
         return user
-    

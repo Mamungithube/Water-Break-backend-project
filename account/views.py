@@ -25,7 +25,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from django.db.models import Q  # For search
 from rest_framework.decorators import action
-
+from django.conf import settings
 from django.core.mail import EmailMessage
 User = get_user_model()
 
@@ -134,7 +134,7 @@ class RegisterApiView(APIView):
             return Response({
                 "detail" : "Registration Successful! Check your email for OTP verification."
             },status=status.HTTP_201_CREATED)
-        return Response(serializers.error_messages,status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializers.errors, status=status.HTTP_400_BAD_REQUEST)
     
 
 
@@ -156,3 +156,31 @@ class VerifyOTPApiView(APIView):
             return Response({'Message': 'Account Activate Successfully'}, status=status.HTTP_200_OK)
         return Response({'Error': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
 
+
+
+""" ----------------Resend OTP API view------------------- """
+
+class ResendOTPApiView(APIView):
+    def post(self,request,*args, **kwargs):
+        email = request.data.get('email')
+        user = get_object_or_404(User,email=email)
+        otp_code = generate_otp()
+        user.profile.otp = otp_code
+        user.profile.save()
+
+        html_content = render_to_string('send_code.html',{'otp':otp_code,'user':user})
+
+        try:
+            msg = EmailMessage(
+                subject='Your New OTP Code',
+                body=html_content,
+                from_email=settings.EMAIL_HOST_USER,
+                to = [email],
+            )
+            msg.content_subtype = "html"
+            msg.send()
+
+            return Response({'Message':"OTP has been Resend To Your email"},status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"Error":f'Failed to send email: {str(e)}'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
