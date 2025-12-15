@@ -94,3 +94,40 @@ class GoogleAuthSerializer(serializers.Serializer):
         )
 
         return user
+    
+
+
+""" ----------------registation Serializer------------------- """
+
+
+class RegistrationSerializer(serializers.ModelSerializer):
+    confirm_password = serializers.CharField(write_only = True)
+
+    class Meta :
+        model = User 
+        fields = ['email','password','confirm_password']
+        extra_kwargs = {
+            'password':{'write_only' : True},
+        }
+
+    def validate(self, data):
+        if data['password'] != data['confirm_password']:
+            raise serializers.ValidationError("Passwords do not match.")
+        password_validation.validate_password(data['password'])
+        return data
+    
+    def create(self, validated_data):
+        validated_data.pop('confirm_password')
+        user = User.objects.create_user(**validated_data)
+        user.is_active = False
+        user.save()
+        otp = generate_otp()
+        Profile.objects.create(user=user, otp=otp)
+        # Send OTP via email
+        subject = 'Your OTP Code - Verify Your Account'
+        message = f'Your OTP for account verification is: {otp}'
+        email_from = settings.EMAIL_HOST_USER
+        recipient_list = [user.email]
+        send_mail(subject, message, email_from, recipient_list)
+        return user
+    

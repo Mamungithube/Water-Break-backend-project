@@ -6,7 +6,8 @@ from rest_framework import (
 )
 from .serializers import (
     UserSerializer, 
-    GoogleAuthSerializer
+    GoogleAuthSerializer,
+    RegistrationSerializer
 )
 from .models import Profile
 from rest_framework import viewsets
@@ -117,3 +118,41 @@ class GoogleLoginAPIView(APIView):
                 "id": user.id
             }
         }, status=status.HTTP_200_OK)
+
+
+
+
+""" ----------------Registration view------------------- """
+
+class RegisterApiView(APIView):
+    serializer_class = RegistrationSerializer
+
+    def post(self,request):
+        serializers = self.serializer_class(data = request.data)
+        if serializers.is_valid():
+            user = serializers.save()
+            return Response({
+                "detail" : "Registration Successful! Check your email for OTP verification."
+            },status=status.HTTP_201_CREATED)
+        return Response(serializers.error_messages,status=status.HTTP_400_BAD_REQUEST)
+    
+
+
+
+""" ----------------verify OTP API view------------------- """
+class VerifyOTPApiView(APIView):
+    def post(self, request, *args, **kwargs):
+        email = request.data.get('email')
+        otp = request.data.get('otp')
+
+        user = get_object_or_404(User, email=email)
+        profile = user.profile
+
+        if profile.otp == otp:
+            user.is_active = True
+            user.save(update_fields=['is_active'])
+            profile.otp = None
+            profile.save(update_fields=['otp'])
+            return Response({'Message': 'Account Activate Successfully'}, status=status.HTTP_200_OK)
+        return Response({'Error': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
+

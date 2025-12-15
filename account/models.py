@@ -17,13 +17,6 @@ class UserManager(BaseUserManager):
     
 
 
-GENDER_CHOICES = (
-        ('male', 'Male'),
-        ('female', 'Female'),
-        ('other', 'Other'),
-    )
-
-
 class User(AbstractUser):
     username = None  # Remove the username field
     email = models.EmailField(unique=True)
