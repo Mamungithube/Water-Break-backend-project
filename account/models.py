@@ -38,6 +38,7 @@ class Profile(models.Model):
     profile_picture = models.ImageField(upload_to='profiles/', null=True, blank=True)
     social_auth_provider = models.CharField(max_length=50, blank=True, null=True)
     is_verified = models.BooleanField(default=True)
+
     
     def __str__(self):  
         return self.user.Fullname if self.user.Fullname else self.user.email

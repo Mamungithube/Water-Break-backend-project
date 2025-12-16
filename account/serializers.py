@@ -32,70 +32,6 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 
-""" ----------------Google Auth Serializer------------------- """
-
-
-
-from rest_framework import serializers
-import requests
-from django.conf import settings
-from .models import User, Profile
-
-class GoogleAuthSerializer(serializers.Serializer):
-    access_token = serializers.CharField()  # Changed from id_token
-
-    def validate(self, attrs):
-        token = attrs.get("access_token")
-        print("Validating Google access token:", token[:50] + "...")
-        
-        try:
-            # Use access token to get user info
-            response = requests.get(
-                "https://www.googleapis.com/oauth2/v2/userinfo",
-                headers={"Authorization": f"Bearer {token}"}
-            )
-            
-            if response.status_code != 200:
-                raise serializers.ValidationError("Invalid Google token")
-            
-            user_info = response.json()
-            
-            if "email" not in user_info:
-                raise serializers.ValidationError("Email not found in token")
-
-            attrs["email"] = user_info["email"]
-            attrs["name"] = user_info.get("name", "")
-            attrs["picture"] = user_info.get("picture", "")
-            return attrs
-
-        except requests.RequestException as e:
-            print(f"Token validation error: {e}")
-            raise serializers.ValidationError("Failed to validate Google token")
-
-    def create_or_login_user(self):
-        email = self.validated_data["email"]
-        name = self.validated_data["name"]
-
-        user, created = User.objects.get_or_create(
-            email=email,
-            defaults={
-                "Fullname": name,
-                "social_auth_provider": "google",
-                "is_active": True,
-            }
-        )
-
-        Profile.objects.get_or_create(
-            user=user,
-            defaults={
-                "social_auth_provider": "google",
-                "is_verified": True,
-            }
-        )
-
-        return user
-    
-
 
 """ ----------------registation Serializer------------------- """
 
@@ -142,3 +78,61 @@ class RegistrationSerializer(serializers.ModelSerializer):
             pass 
             
         return user
+    
+
+"""----------------------------reset password serializer---------------------------"""
+
+
+class ResetPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField() 
+    password = serializers.CharField(write_only=True, min_length=8)
+    confirm_password = serializers.CharField(write_only=True, min_length=8)
+
+    def validate(self, data):
+        if data['password'] != data['confirm_password']:
+            raise serializers.ValidationError("Passwords do not match")
+        return data
+    
+
+
+
+""" ----------------Change Password Serializer------------------- """
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(required=True, write_only=True)
+    confirm_password = serializers.CharField(required=True, write_only=True)
+
+    def validate_new_password(self, value):
+        password_validation.validate_password(value, self.context['request'].user)
+        return value
+
+    def validate(self, data):
+        if data["new_password"] != data["confirm_password"]:
+            raise serializers.ValidationError({"confirm_password": "New password and confirm password do not match."})
+        return data
+    
+
+""" ----------------Login view------------------- """
+
+
+class LoginSerializer(serializers.Serializer):
+    email = serializers.CharField(required=True)
+    password = serializers.CharField(required=True, write_only=True)
+
+
+""" ----------------User Login view------------------- """
+class UserLoginSerializer(serializers.ModelSerializer):
+    tokens = serializers.SerializerMethodField()
+
+    def get_tokens(self, user):
+        refresh = RefreshToken.for_user(user)
+        return {
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        }
+
+    class Meta:
+        model = User
+        fields = ['email', 'tokens']
