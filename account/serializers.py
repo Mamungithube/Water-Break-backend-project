@@ -14,6 +14,7 @@ from django.template.loader import render_to_string
 from django.conf import settings
 User = get_user_model()
 
+
 """ ----------------User Serializer------------------- """
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -136,3 +137,63 @@ class UserLoginSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['email', 'tokens']
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# from rest_framework import serializers
+# from .models import User, InvitationToken, TeamMember
+
+# # --- User Serializer (Basic Info) ---
+# class CoachSerializer(serializers.ModelSerializer):
+#     """Serializer for displaying essential Coach info in invitation details."""
+#     class Meta:
+#         model = User
+#         fields = ('id', 'Fullname', 'email')
+        
+# # --- 1. Invitation Token Serializer ---
+# class InvitationTokenCreateSerializer(serializers.ModelSerializer):
+#     """Serializer for creating a new Invitation Token."""
+#     # coach field will be set by the view based on the authenticated user
+
+#     class Meta:
+#         model = InvitationToken
+#         # Allow the coach to optionally suggest a role
+#         fields = ('suggested_role',) 
+
+# class InvitationTokenDetailsSerializer(serializers.ModelSerializer):
+#     """Serializer for verifying the token and displaying coach details."""
+#     coach = CoachSerializer(read_only=True)
+#     is_valid = serializers.SerializerMethodField()
+
+#     class Meta:
+#         model = InvitationToken
+#         fields = ('coach', 'token', 'suggested_role', 'expires_at', 'is_valid')
+#         read_only_fields = fields
+
+#     def get_is_valid(self, obj):
+#         return obj.is_valid()
+
+# # --- 2. Team Member Join Serializer ---
+# class TeamMemberJoinSerializer(serializers.Serializer):
+#     """Serializer for joining a team using a token and selecting a role."""
+#     token = serializers.UUIDField()
+#     selected_role = serializers.ChoiceField(
+#         choices=TeamMember._meta.get_field('role').choices,
+#         required=True
+#     )

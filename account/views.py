@@ -430,3 +430,120 @@ class BaseResponseMixin:
             "data": data
         }
         return Response(response, status=status_code)
+
+
+
+
+
+
+
+
+
+
+
+# from rest_framework import generics, status
+# from rest_framework.permissions import IsAuthenticated
+# from rest_framework.response import Response
+# from django.shortcuts import get_object_or_404
+# from django.db import transaction
+
+# from .models import User, InvitationToken, TeamMember
+# from .serializers import (
+#     InvitationTokenCreateSerializer, 
+#     InvitationTokenDetailsSerializer, 
+#     TeamMemberJoinSerializer
+# )
+
+# # --- 1. Coach creates the Invitation Token ---
+# class InvitationCreateView(generics.CreateAPIView):
+#     serializer_class = InvitationTokenCreateSerializer
+#     permission_classes = [IsAuthenticated]
+
+#     def perform_create(self, serializer):
+#         # Ensure only a 'coach' can create an invitation
+#         if self.request.user.role != 'coach':
+#             # Customize this error message/status as needed
+#             raise serializers.ValidationError("Only coaches can create invitation tokens.")
+            
+#         # The coach is the authenticated user
+#         instance = serializer.save(coach=self.request.user)
+        
+#         # You can construct the deep link/URL here if needed for the response
+#         # Example: instance.token will be the UUID
+
+# # --- 2. Verify Invitation Token and Fetch Coach Info ---
+# class InvitationVerifyView(generics.RetrieveAPIView):
+#     serializer_class = InvitationTokenDetailsSerializer
+#     # This view is publicly accessible, even before login/signup
+#     authentication_classes = [] 
+#     permission_classes = []
+#     lookup_field = 'token'
+
+#     def get_object(self):
+#         # Retrieves the token object and ensures it is valid
+#         token_uuid = self.kwargs.get(self.lookup_field)
+#         invitation = get_object_or_404(InvitationToken, token=token_uuid)
+
+#         if not invitation.is_valid():
+#             # You might want to return a different status or a specific error message
+#             raise serializers.ValidationError({"detail": "Invitation token is expired or already used."})
+        
+#         return invitation
+
+# # --- 3. User joins the Team (Final Step) ---
+# class TeamJoinView(generics.GenericAPIView):
+#     serializer_class = TeamMemberJoinSerializer
+#     permission_classes = [IsAuthenticated] # User must be logged in/signed up
+
+#     def post(self, request, *args, **kwargs):
+#         serializer = self.get_serializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+
+#         token_uuid = serializer.validated_data['token']
+#         selected_role = serializer.validated_data['selected_role']
+#         member_user = request.user # The user performing the join operation
+
+#         try:
+#             with transaction.atomic():
+#                 # Get and lock the token to prevent race conditions
+#                 invitation = InvitationToken.objects.select_for_update().get(token=token_uuid)
+                
+#                 # Double-check validation
+#                 if not invitation.is_valid():
+#                     return Response({"detail": "Invitation token is expired or already used."}, 
+#                                     status=status.HTTP_400_BAD_REQUEST)
+                
+#                 coach_user = invitation.coach
+
+#                 # 1. Create the TeamMember instance (Role is set by the joining user)
+#                 team_member, created = TeamMember.objects.get_or_create(
+#                     coach=coach_user,
+#                     member=member_user,
+#                     defaults={
+#                         'role': selected_role,
+#                         'is_role_approved': False # Pending approval as per your requirement
+#                     }
+#                 )
+
+#                 if not created:
+#                     return Response({"detail": "You are already a member of this team."}, 
+#                                     status=status.HTTP_400_BAD_REQUEST)
+                
+#                 # 2. Mark the token as used
+#                 invitation.is_used = True
+#                 invitation.save(update_fields=['is_used'])
+
+#                 # 3. Notification Logic (Placeholder for your system)
+#                 # notification_system.send_notification(coach_user, f"New member {member_user.Fullname} joined. Role: {selected_role}")
+
+#                 return Response({
+#                     "message": "Successfully joined the team! Approval pending from coach.",
+#                     "team_member_id": team_member.id
+#                 }, status=status.HTTP_201_CREATED)
+
+#         except InvitationToken.DoesNotExist:
+#             return Response({"detail": "Invalid invitation token."}, 
+#                             status=status.HTTP_404_NOT_FOUND)
+#         except Exception as e:
+#             # General error handling
+#             return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
