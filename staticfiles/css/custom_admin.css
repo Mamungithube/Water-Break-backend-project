@@ -1,0 +1,17 @@
+/* পুরো বডির ব্যাকগ্রাউন্ড (লাইট মোড) */
+body, .unfold-main {
+    background-color: #f0f2f5 !important; /* হালকা ধূসর */
+}
+
+/* মাঝখানের সাদা কার্ড বা বক্সগুলোর ব্যাকগ্রাউন্ড পরিবর্তন */
+.bg-white, 
+.unfold-card,
+[class*="bg-white"] {
+    background-color: #f9fafb !important; /* আপনার পছন্দমতো রঙ দিন */
+    border: 1px solid #e5e7eb !important;
+}
+
+/* সাইডবার কালার */
+#sidebar-nav {
+    background-color: #ffffff !important;
+}

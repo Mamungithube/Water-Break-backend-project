@@ -42,6 +42,10 @@ AUTH_USER_MODEL = 'account.User'
 # Application definition
 
 INSTALLED_APPS = [
+    "unfold", 
+    "unfold.contrib.filters",  # optional, if special filters are needed
+    "unfold.contrib.forms",  # optional, if special form elements are needed
+
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -127,6 +131,17 @@ TEMPLATES = [
 WSGI_APPLICATION = 'water_break.wsgi.application'
 
 
+# admin deshboard design
+
+from django.templatetags.static import static
+
+UNFOLD = {
+    'SITE_HEADER': 'Water Break Admin',
+    "STYLES": [
+        "/static/css/custom_admin.css", # সরাসরি পাথ ব্যবহার করে দেখুন
+    ],
+}
+
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
@@ -183,6 +198,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = '/static/'
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
