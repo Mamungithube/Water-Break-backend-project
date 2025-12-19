@@ -4,22 +4,17 @@ from django.contrib.auth.models import Group
 from unfold.admin import ModelAdmin
 from .models import User, Profile, Subscription, TeamMember, InvitationToken
 from django.utils import timezone
-
-
+from unfold.forms import UserChangeForm, UserCreationForm
 
 """=========================unregister Models from admin========================="""
+
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 
 admin.site.unregister(OutstandingToken)
 admin.site.unregister(BlacklistedToken)
 admin.site.unregister(Group)
 
-
-# =========================
-# Custom User Admin
-# =========================
-
-from unfold.forms import UserChangeForm, UserCreationForm
+""" =============================== User Admin =============================== """
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin, ModelAdmin):
@@ -30,6 +25,9 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
         (('Personal info'), {'fields': ('Fullname', 'role')}),
+        (('Permissions'), {
+            'fields': ('is_active', 'is_staff', 'is_superuser'),
+        }),
         (('Important dates'), {'fields': ('last_login', 'date_joined')}),
     )
     
@@ -46,9 +44,7 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
     search_fields = ('email', 'Fullname')
     ordering = ('email',)
 
-# =========================
-# Profile Admin
-# =========================
+""" =========================== Profile Admin ============================= """
 
 @admin.register(Profile)
 class ProfileAdmin(ModelAdmin):
@@ -60,9 +56,7 @@ class ProfileAdmin(ModelAdmin):
         return obj.user.email
     user_email.short_description = 'User Email'
 
-# =========================
-# Subscription Admin
-# =========================
+""" ========================= Subscription Admin ========================= """
 
 @admin.register(Subscription)
 class SubscriptionAdmin(ModelAdmin):
@@ -81,9 +75,7 @@ class SubscriptionAdmin(ModelAdmin):
 
     actions = [activate_subscription]
 
-# =========================
-# Team Member Admin
-# =========================
+""" ==============================Team Member Admin=============================== """
 
 @admin.register(TeamMember)
 class TeamMemberAdmin(ModelAdmin):
@@ -105,13 +97,14 @@ class TeamMemberAdmin(ModelAdmin):
     def member_email(self, obj):
         return obj.member.email
 
-# =========================
-# Invitation Token Admin
-# =========================
+
+
+""" =========================Invitation Token Admin========================="""
+
 
 @admin.register(InvitationToken)
 class InvitationTokenAdmin(ModelAdmin): 
-    list_display = ('coach_email', 'token', 'is_valid_display', 'is_used', 'expires_at')
+    list_display = ('coach_email', 'token', 'is_valid_display', 'is_used', 'expires_at', 'suggested_role')
     list_filter = ('is_used', 'suggested_role')
     search_fields = ('coach__email', 'token')
     readonly_fields = ('token', 'created_at')

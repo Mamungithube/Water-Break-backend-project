@@ -38,10 +38,11 @@ class BlockAdmin(ModelAdmin):
 
 @admin.register(plan)
 class planAdmin(ModelAdmin):
-    list_display = ["Drill", "prectice_time"]
+    list_display = ["plan_title","Drill", "prectice_time"]
     fieldsets = (
         ("main information", {
             "fields": (
+                "plan_title",
                 "Drill",
                 "prectice_time",
             )
