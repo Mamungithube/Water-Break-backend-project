@@ -9,12 +9,14 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
+from django.templatetags.static import static
+from datetime import timedelta
 from dotenv import load_dotenv
 from pathlib import Path
 import psycopg2
 import os
 load_dotenv()
- 
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -36,13 +38,13 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     '10.10.10.46',
 ]
- 
+
 AUTH_USER_MODEL = 'account.User'
 
 # Application definition
 
 INSTALLED_APPS = [
-    "unfold", 
+    "unfold",
     "unfold.contrib.filters",  # optional, if special filters are needed
     "unfold.contrib.forms",  # optional, if special form elements are needed
 
@@ -53,11 +55,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    #third party apps
+    # third party apps
     'rest_framework',
     'corsheaders',
     'rest_framework_simplejwt',
-    'rest_framework_simplejwt.token_blacklist',
+    # 'rest_framework_simplejwt.token_blacklist',
 
 
     # Local apps
@@ -65,7 +67,7 @@ INSTALLED_APPS = [
     'plan',
     'chat_system',
     'subscription',
-    
+
 ]
 
 MIDDLEWARE = [
@@ -94,8 +96,7 @@ REST_FRAMEWORK = {
 
 
 # ==================== JWT ====================
-from datetime import timedelta
- 
+
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=10),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=20),
@@ -131,17 +132,45 @@ TEMPLATES = [
 WSGI_APPLICATION = 'water_break.wsgi.application'
 
 
-# admin deshboard design
 
-from django.templatetags.static import static
+"""======================Admin deshboard design UNFOLD settings======================"""
+
 
 UNFOLD = {
-    'SITE_HEADER': 'Water Break Admin',
+    "SITE_HEADER": "Water Break Admin",
+    "SITE_TITLE": "Water Break",
+    "SITE_SYMBOL": "💧",   
+    "show_all_applications": False,
+    
+    # Gradient colors
+    "COLORS": {
+        "primary": {
+            "50": "236 254 255",
+            "100": "207 250 254",
+            "200": "165 243 252",
+            "300": "103 232 249",
+            "400": "34 211 238",
+            "500": "6 182 212",
+            "600": "8 145 178",
+            "700": "14 116 144",
+            "800": "21 94 117",
+            "900": "22 78 99",
+        },
+    },
+    
+    "SIDEBAR": {
+        "show_search": True,
+        # "show_all_applications": True, 
+        "navigation": [], 
+    },
+    
+    # Custom styling
     "STYLES": [
-        "/static/css/custom_admin.css", # সরাসরি পাথ ব্যবহার করে দেখুন
+        "css/custom_admin.css",
     ],
-}
 
+    
+}
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
@@ -218,7 +247,6 @@ EMAIL_PORT = 587
 EMAIL_HOST_USER = "mdmamun340921@gmail.com"
 
 EMAIL_HOST_PASSWORD = 'cafocwgrutfclerv'
-
 
 
 GOOGLE_OAUTH2_CLIENT_ID = '13539718142-1dat7lq3921gr96l9ghisfa186mg8imf.apps.googleusercontent.com'

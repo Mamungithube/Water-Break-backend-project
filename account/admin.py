@@ -15,12 +15,24 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
     form = UserChangeForm
     add_form = UserCreationForm
     
+    # **FIX: Define fieldsets without username**
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
-        ('Personal info', {'fields': ('Fullname', 'role')}),
-        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
-        ('Important dates', {'fields': ('last_login', 'date_joined')}),
+        (('Personal info'), {'fields': ('Fullname', 'role')}),
+        (('Permissions'), {
+            'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
+        }),
+        (('Important dates'), {'fields': ('last_login', 'date_joined')}),
     )
+    
+    # **FIX: Add fields for the add form**
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('email', 'Fullname', 'role', 'password1', 'password2'),
+        }),
+    )
+    
     list_display = ('email', 'Fullname', 'role', 'is_staff', 'is_active')
     list_filter = ('is_staff', 'is_active', 'role', 'groups')
     search_fields = ('email', 'Fullname')
