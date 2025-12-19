@@ -1,8 +1,19 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.models import Group
 from unfold.admin import ModelAdmin
 from .models import User, Profile, Subscription, TeamMember, InvitationToken
 from django.utils import timezone
+
+
+
+"""=========================unregister Models from admin========================="""
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+
+admin.site.unregister(OutstandingToken)
+admin.site.unregister(BlacklistedToken)
+admin.site.unregister(Group)
+
 
 # =========================
 # Custom User Admin
@@ -19,9 +30,6 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
         (('Personal info'), {'fields': ('Fullname', 'role')}),
-        (('Permissions'), {
-            'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
-        }),
         (('Important dates'), {'fields': ('last_login', 'date_joined')}),
     )
     
@@ -34,10 +42,9 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
     )
     
     list_display = ('email', 'Fullname', 'role', 'is_staff', 'is_active')
-    list_filter = ('is_staff', 'is_active', 'role', 'groups')
+    list_filter = ('is_staff', 'is_active', 'role')
     search_fields = ('email', 'Fullname')
     ordering = ('email',)
-    filter_horizontal = ('groups', 'user_permissions')
 
 # =========================
 # Profile Admin
@@ -104,7 +111,7 @@ class TeamMemberAdmin(ModelAdmin):
 
 @admin.register(InvitationToken)
 class InvitationTokenAdmin(ModelAdmin): 
-    list_display = ('coach_email', 'token', 'is_valid_display', 'is_used', 'expires_at', 'suggested_role')
+    list_display = ('coach_email', 'token', 'is_valid_display', 'is_used', 'expires_at')
     list_filter = ('is_used', 'suggested_role')
     search_fields = ('coach__email', 'token')
     readonly_fields = ('token', 'created_at')

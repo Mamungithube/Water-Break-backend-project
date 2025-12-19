@@ -11,3 +11,28 @@ class Drill(models.Model):
 
     def __str__(self):
         return self.name
+    
+
+
+class Block(models.Model):
+    assign_team = models.ForeignKey('account.TeamMember', on_delete=models.CASCADE)
+    drill = models.ForeignKey(Drill, on_delete=models.CASCADE)
+    title = models.CharField(max_length=50)
+    start_time  = models.DateTimeField()
+    end_time = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):  
+        return f"{self.drill.name} - {self.title}"
+    
+
+class plan(models.Model):
+    plan_title = models.CharField(max_length=100)
+    Drill = models.ForeignKey(Drill, on_delete=models.CASCADE)
+    prectice_time = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.Drill.name} - {self.prectice_time}"
