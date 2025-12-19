@@ -1,3 +1,10 @@
+import os
+from google_auth_oauthlib.flow import Flow
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token
+from django.shortcuts import redirect
+from rest_framework import status, serializers
+from django.contrib.auth import get_user_model, login
 from re import search
 from django.conf import settings
 import requests
@@ -5,7 +12,7 @@ from rest_framework import (
     status
 )
 from .serializers import (
-    UserSerializer, 
+    UserSerializer,
     RegistrationSerializer,
     ResetPasswordSerializer,
     ChangePasswordSerializer,
@@ -16,13 +23,13 @@ from rest_framework import viewsets
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from django.core.mail import EmailMultiAlternatives,send_mail
+from django.core.mail import EmailMultiAlternatives, send_mail
 from django.template.loader import render_to_string
 from django.contrib.auth import authenticate, login
 from django.shortcuts import get_object_or_404
 from .utils import generate_otp
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.permissions import IsAuthenticated,IsAdminUser
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from django.db.models import Q  # For search
@@ -32,7 +39,6 @@ from django.core.mail import EmailMessage
 from rest_framework.permissions import AllowAny
 User = get_user_model()
 
-import requests
 
 class UserAPIView(APIView):
     # permission_classes = [IsAdminUser]
@@ -85,28 +91,17 @@ class UserAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
 """ ----------------Gooooooooooogle auth  view------------------- """
 
 
-from django.contrib.auth import get_user_model, login
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework import status, serializers
-from django.conf import settings
-from django.shortcuts import redirect
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
-from google_auth_oauthlib.flow import Flow
-import os
-
 User = get_user_model()
+
 
 class GoogleLoginInitView(APIView):
     """
     Step 1: Generate Google OAuth URL and redirect user
     """
+
     def get(self, request):
         # Google OAuth Flow তৈরি করুন
         flow = Flow.from_client_config(
@@ -125,19 +120,19 @@ class GoogleLoginInitView(APIView):
                 'https://www.googleapis.com/auth/userinfo.profile'
             ]
         )
-        
+
         flow.redirect_uri = settings.GOOGLE_OAUTH2_REDIRECT_URI
-        
+
         # Authorization URL তৈরি করুন
         authorization_url, state = flow.authorization_url(
             access_type='offline',
             include_granted_scopes='true',
             prompt='consent'  # প্রতিবার consent চাইবে
         )
-        
+
         # State session এ save করুন (CSRF protection)
         request.session['google_auth_state'] = state
-        
+
         return Response({
             'authorization_url': authorization_url
         }, status=status.HTTP_200_OK)
@@ -147,11 +142,12 @@ class GoogleCallbackView(APIView):
     """
     Step 2: Handle Google callback and create/login user
     """
+
     def get(self, request):
         # Authorization code এবং state পান
         code = request.GET.get('code')
         state = request.GET.get('state')
-        
+
         # State verification (CSRF protection)
         saved_state = request.session.get('google_auth_state')
         if not state or state != saved_state:
@@ -159,7 +155,7 @@ class GoogleCallbackView(APIView):
                 {'error': 'Invalid state parameter'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         try:
             # OAuth flow complete করুন
             flow = Flow.from_client_config(
@@ -178,12 +174,12 @@ class GoogleCallbackView(APIView):
                     'https://www.googleapis.com/auth/userinfo.profile'
                 ]
             )
-            
+
             flow.redirect_uri = settings.GOOGLE_OAUTH2_REDIRECT_URI
-            
+
             # Authorization code দিয়ে token পান
             flow.fetch_token(code=code)
-            
+
             # Credentials থেকে ID token verify করুন
             credentials = flow.credentials
             id_info = id_token.verify_oauth2_token(
@@ -191,49 +187,48 @@ class GoogleCallbackView(APIView):
                 google_requests.Request(),
                 settings.GOOGLE_OAUTH2_CLIENT_ID
             )
-            
+
             # User তথ্য extract করুন
             email = id_info.get('email')
             name = id_info.get('name', '')
             picture = id_info.get('picture', '')
-            
+
             if not email:
                 return Response(
                     {'error': 'Email not found in token'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
+
             # User তৈরি বা খুঁজে আনুন
-            user, created = User.objects.get_or_create(
-                email=email,
-                defaults={
-                    "Fullname": name,
-                    "social_auth_provider": "google",
-                    "is_active": True,
-                }
-            )
-            
-            # Profile তৈরি বা update করুন
-            from .models import Profile  # আপনার Profile model import করুন
-            Profile.objects.get_or_create(
-                user=user,
-                defaults={
-                    "social_auth_provider": "google",
-                    "is_verified": True,
-                }
-            )
-            
+            user, created = User.objects.get_or_create(email=email)
+
+            print(f"Saving user: {email}, Name: {name}") 
+            user.Fullname = name
+            user.social_auth_provider = "google"
+            user.is_active = True
+            user.save() # এটি এখন কাজ করবে যদি URL ঠিক থাকে
+
+            # Profile আপডেট
+            profile, p_created = Profile.objects.get_or_create(user=user)
+            profile.social_auth_provider = "google"
+            profile.is_verified = True
+
+            # ছবি সেভ করা (আপনার প্রোফাইল মডেলে image বা picture ফিল্ড থাকলে)
+            if picture:
+                profile.profile_image = picture
+            profile.save()  # <--- প্রোফাইল ডাটা সেভ নিশ্চিত করবে
+
             # Django session login
             login(request, user)
-            
+
             # JWT tokens generate করুন
             refresh = RefreshToken.for_user(user)
-            
+
             # Frontend এ redirect করুন tokens সহ
             frontend_url = f"http://localhost:3000/auth/callback?access={str(refresh.access_token)}&refresh={str(refresh)}"
-            
+
             return redirect(frontend_url)
-            
+
             # অথবা JSON response পাঠান (যদি API হিসেবে ব্যবহার করতে চান)
             # return Response({
             #     "refresh": str(refresh),
@@ -244,7 +239,7 @@ class GoogleCallbackView(APIView):
             #         "id": user.id
             #     }
             # }, status=status.HTTP_200_OK)
-            
+
         except Exception as e:
             print(f"Google OAuth error: {str(e)}")
             return Response(

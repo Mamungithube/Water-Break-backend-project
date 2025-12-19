@@ -251,4 +251,4 @@ EMAIL_HOST_PASSWORD = 'cafocwgrutfclerv'
 
 GOOGLE_OAUTH2_CLIENT_ID = '13539718142-1dat7lq3921gr96l9ghisfa186mg8imf.apps.googleusercontent.com'
 GOOGLE_OAUTH2_CLIENT_SECRET = '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'
-GOOGLE_OAUTH2_REDIRECT_URI = 'http://localhost:8000/api/auth/google/callback/'
+GOOGLE_OAUTH2_REDIRECT_URI = 'http://localhost:8000/api/account/auth/google/callback/'
