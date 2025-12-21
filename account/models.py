@@ -2,9 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils import timezone
 import uuid
-# =========================
-# User Manager
-# =========================
+"""=========================Custom User Manager========================="""
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -93,44 +91,96 @@ class Subscription(models.Model):
 
 
 """=========================Team Member Model========================="""
-class TeamMember(models.Model):
-    ROLE_CHOICES = ( 
-        ('assistant', 'Assistant Coach'),
-        ('player', 'Player'),
-    )
+from django.db import models
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+
+User = get_user_model()
+
+class Team(models.Model):
     coach = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='teams',
+        related_name='coached_teams',
         limit_choices_to={'role': 'coach'}
     )
+    name = models.CharField(max_length=100)
+    team_profile_pic = models.ImageField(upload_to='team_profiles/', blank=True, null=True)
+    members = models.ManyToManyField(
+        User,
+        through='TeamMember',
+        related_name='teams'
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} (Coach: {self.coach.email})"
+
+class TeamMember(models.Model):
+    ROLE_CHOICES = (
+        ('assistant', 'Assistant Coach'),
+        ('player', 'Player'),
+    )
+
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name='memberships'
+    )
+
     member = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='team_roles'
+        related_name='team_memberships'
     )
+
     role = models.CharField(
         max_length=20,
         choices=ROLE_CHOICES,
         default='player'
     )
+
     is_role_approved = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
+    joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('coach', 'member')
+        unique_together = ('team', 'member')
+
+    def clean(self):
+        # Coach নিজের team-এর member হতে পারবে না
+        if self.team.coach == self.member:
+            raise ValidationError(
+                f"Coach {self.member.email} cannot be added as a member of their own team."
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.member.email} ({self.role}) under {self.coach.email}"
+        return f"{self.member.email} ({self.get_role_display()})"
+
 
 
 
 """=========================Invitation Token Model========================="""
 
+import uuid
+from django.db import models
+from django.utils import timezone
+from datetime import timedelta
+
+
+def get_expiry_date():
+    """Return expiry date 7 days from now"""
+    return timezone.now() + timedelta(days=7)
+
 
 class InvitationToken(models.Model):
     coach = models.ForeignKey(
-        User,
+        'User',  # বা 'account.User' আপনার app structure অনুযায়ী
         on_delete=models.CASCADE,
         related_name='invitations',
         limit_choices_to={'role': 'coach'}
@@ -141,9 +191,10 @@ class InvitationToken(models.Model):
         unique=True
     )
     expires_at = models.DateTimeField(
-        default=timezone.now() + timezone.timedelta(days=7)
+        default=get_expiry_date 
     )
     is_used = models.BooleanField(default=False)
+    
     ROLE_CHOICES = (
         ('assistant', 'Assistant Coach'),
         ('player', 'Player'),
@@ -153,7 +204,6 @@ class InvitationToken(models.Model):
         choices=ROLE_CHOICES,
         default='player'
     )
-
     created_at = models.DateTimeField(auto_now_add=True)
 
     def is_valid(self):
@@ -162,3 +212,8 @@ class InvitationToken(models.Model):
 
     def __str__(self):
         return f"Token for {self.coach.email} - Valid: {self.is_valid()}"
+    
+    class Meta:
+        verbose_name = "Invitation Token"
+        verbose_name_plural = "Invitation Tokens"
+        ordering = ['-created_at']

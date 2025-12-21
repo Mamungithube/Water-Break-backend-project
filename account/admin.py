@@ -2,13 +2,13 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import Group
 from unfold.admin import ModelAdmin
-from .models import User, Profile, Subscription, TeamMember, InvitationToken
+from .models import User, Profile, Subscription, TeamMember, InvitationToken , Team
 from django.utils import timezone
 from unfold.forms import UserChangeForm, UserCreationForm
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 
 """=========================unregister Models from admin========================="""
 
-from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 
 admin.site.unregister(OutstandingToken)
 admin.site.unregister(BlacklistedToken)
@@ -79,27 +79,43 @@ class SubscriptionAdmin(ModelAdmin):
 
 """ ==============================Team Member Admin=============================== """
 
+@admin.register(Team)
+class TeamAdmin(ModelAdmin): 
+    list_display = ('name', 'coach_email', 'created_at')
+    list_filter = ('created_at',)
+    search_fields = ('name', 'coach__email')
+    autocomplete_fields = ('coach',)  
+    
+    def coach_email(self, obj):
+        return obj.coach.email
+    coach_email.short_description = 'Coach'
+
 @admin.register(TeamMember)
 class TeamMemberAdmin(ModelAdmin):
-    list_display = ('coach_email', 'member_email', 'role', 'is_role_approved', 'created_at')
+
+    list_display = ('coach_email','get_members','role','is_role_approved','joined_at',)
+
     list_filter = ('role', 'is_role_approved')
-    search_fields = ('coach__email', 'member__email', 'member__Fullname')
-    raw_id_fields = ('coach', 'member')
-    
+
+    search_fields = ('team__coach__email',  'member__email','member__fullname',)
+
+    autocomplete_fields = ('team', 'member')
     @admin.action(description='Approve selected member roles')
     def approve_roles(self, request, queryset):
         updated_count = queryset.filter(is_role_approved=False).update(is_role_approved=True)
-        self.message_user(request, f"{updated_count} member roles successfully approved.")
-
+        self.message_user(
+            request,
+            f"{updated_count} member roles successfully approved."
+        )
     actions = [approve_roles]
 
     def coach_email(self, obj):
-        return obj.coach.email
+        return obj.team.coach.email
+    coach_email.short_description = 'Coach'
 
-    def member_email(self, obj):
+    def get_members(self, obj):
         return obj.member.email
-
-
+    get_members.short_description = 'Members'
 
 """ =========================Invitation Token Admin========================="""
 

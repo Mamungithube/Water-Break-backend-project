@@ -152,89 +152,89 @@ UNFOLD = {
     "USER_AVATAR": "avatar",
     "USER_STR_FUNC": "get_full_name", 
 
-    "SIDEBAR": {
-        "show_search": True,
-        "navigation": [
-            {
-                "title": "USER MANAGEMENT",
-                "separator": True,
-                "items": [
-                    {
-                        "title": "Users",
-                        "link": "/admin/account/user/", 
-                        "icon": "manage_accounts",
-                    },
-                    {
-                        "title": "Profiles",
-                        "link": "/admin/account/profile/",
-                        "icon": "person", 
-                    },
-                    {
-                        "title": "Invitation tokens",
-                        "link": "/admin/account/invitationtoken/", 
-                        "icon": "vpn_key",
-                    },
-                    {
-                        "title": "Subscriptions",
-                        "link": "/admin/account/subscription/", 
-                        "icon": "card_membership",
-                    },
-                    {
-                        "title": "Team members",
-                        "link": "/admin/account/teammember/", 
-                        "icon": "groups",
-                    },
-                ],
-            },
-            {
-                "title": "PRACTICE PLAN",
-                "separator": True,
-                "items": [
-                    {
-                        "title": "Plans",
-                        "link": "/admin/plan/plan/",
-                        "icon": "format_list_bulleted", 
-                    },
-                    {
-                        "title": "Drills",
-                        "link": "/admin/plan/drill/",
-                        "icon": "category", 
-                    },
-                    {
-                        "title": "Blocks",
-                        "link": "/admin/plan/block/",
-                        "icon": "grid_view",
-                    },
-                ],
-            },
-            {
-                "title": "SERVICE & CONTENT",
-                "separator": True,
-                "items": [
-                    {
-                        "title": "About Us",
-                        "link": "/admin/service/aboutus/",
-                        "icon": "info",
-                    },
-                    {
-                        "title": "FAQs",
-                        "link": "/admin/service/faq/",
-                        "icon": "quiz",
-                    },
-                    {
-                        "title": "Terms & Conditions",
-                        "link": "/admin/service/termsandconditions/",
-                        "icon": "gavel",
-                    },
-                    {
-                        "title": "Privacy Policy",
-                        "link": "/admin/service/privacy_policy/",
-                        "icon": "policy",
-                    },
-                ],
-            },
-        ],
-    },
+    # "SIDEBAR": {
+    #     "show_search": True,
+    #     "navigation": [
+    #         {
+    #             "title": "USER MANAGEMENT",
+    #             "separator": True,
+    #             "items": [
+    #                 {
+    #                     "title": "Users",
+    #                     "link": "/admin/account/user/", 
+    #                     "icon": "manage_accounts",
+    #                 },
+    #                 {
+    #                     "title": "Profiles",
+    #                     "link": "/admin/account/profile/",
+    #                     "icon": "person", 
+    #                 },
+    #                 {
+    #                     "title": "Invitation tokens",
+    #                     "link": "/admin/account/invitationtoken/", 
+    #                     "icon": "vpn_key",
+    #                 },
+    #                 {
+    #                     "title": "Subscriptions",
+    #                     "link": "/admin/account/subscription/", 
+    #                     "icon": "card_membership",
+    #                 },
+    #                 {
+    #                     "title": "Team members",
+    #                     "link": "/admin/account/teammember/", 
+    #                     "icon": "groups",
+    #                 },
+    #             ],
+    #         },
+    #         {
+    #             "title": "PRACTICE PLAN",
+    #             "separator": True,
+    #             "items": [
+    #                 {
+    #                     "title": "Plans",
+    #                     "link": "/admin/plan/plan/",
+    #                     "icon": "format_list_bulleted", 
+    #                 },
+    #                 {
+    #                     "title": "Drills",
+    #                     "link": "/admin/plan/drill/",
+    #                     "icon": "category", 
+    #                 },
+    #                 {
+    #                     "title": "Blocks",
+    #                     "link": "/admin/plan/block/",
+    #                     "icon": "grid_view",
+    #                 },
+    #             ],
+    #         },
+    #         {
+    #             "title": "SERVICE & CONTENT",
+    #             "separator": True,
+    #             "items": [
+    #                 {
+    #                     "title": "About Us",
+    #                     "link": "/admin/service/aboutus/",
+    #                     "icon": "info",
+    #                 },
+    #                 {
+    #                     "title": "FAQs",
+    #                     "link": "/admin/service/faq/",
+    #                     "icon": "quiz",
+    #                 },
+    #                 {
+    #                     "title": "Terms & Conditions",
+    #                     "link": "/admin/service/termsandconditions/",
+    #                     "icon": "gavel",
+    #                 },
+    #                 {
+    #                     "title": "Privacy Policy",
+    #                     "link": "/admin/service/privacy_policy/",
+    #                     "icon": "policy",
+    #                 },
+    #             ],
+    #         },
+    #     ],
+    # },
 }
 
 
