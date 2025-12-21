@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     'plan',
     'chat_system',
     'subscription',
+    'service',
 
 ]
 
@@ -137,7 +138,7 @@ WSGI_APPLICATION = 'water_break.wsgi.application'
 
 
 UNFOLD = {
-    "SITE_HEADER": "Water Break Admin",
+    "SITE_HEADER": "Water Break Admin Deshboard",
     "SITE_TITLE": "Water Break",
     "SITE_SYMBOL": "💧",   
     "show_all_applications": False,
@@ -160,14 +161,8 @@ UNFOLD = {
     
     "SIDEBAR": {
         "show_search": True,
-        # "show_all_applications": True, 
         "navigation": [], 
     },
-    
-    # Custom styling
-    "STYLES": [
-        "css/custom_admin.css",
-    ],
 
     
 }

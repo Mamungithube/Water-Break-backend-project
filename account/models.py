@@ -1,8 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils import timezone
-
-
+import uuid
 # =========================
 # User Manager
 # =========================
@@ -23,9 +22,8 @@ class UserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 
-# =========================
-# User Model
-# =========================
+"""=========================Custom User Model========================="""
+
 class User(AbstractUser):
     ROLE_CHOICES = (
         ('coach', 'Coach'),
@@ -51,9 +49,8 @@ class User(AbstractUser):
         return self.Fullname or self.email
 
 
-# =========================
-# Profile Model
-# =========================
+"""=========================Profile Model========================="""
+
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     otp = models.CharField(max_length=4, blank=True, null=True)
@@ -64,9 +61,7 @@ class Profile(models.Model):
         return self.user.Fullname or self.user.email
 
 
-# =========================
-# Subscription Model
-# =========================
+"""=========================Subscription Model========================="""
 class Subscription(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='subscription')
     is_active = models.BooleanField(default=False)
@@ -74,24 +69,18 @@ class Subscription(models.Model):
     end_date = models.DateTimeField(blank=True, null=True)
 
     def save(self, *args, **kwargs):
-        # Check if the 'is_active' field is changing to True
-        # To avoid unnecessary updates, we check the database state
         try:
             old_instance = Subscription.objects.get(pk=self.pk)
             is_active_changed_to_true = self.is_active and not old_instance.is_active
         except Subscription.DoesNotExist:
-            # New subscription instance, check if it's being saved as active
             is_active_changed_to_true = self.is_active
         
-        # Call the original save method
         super().save(*args, **kwargs)
 
-        # If the subscription is now active, upgrade the user's role to 'coach'
         if is_active_changed_to_true and self.user.role != 'coach':
             self.user.role = 'coach'
             self.user.save(update_fields=['role'])
             
-            # OPTIONAL: You may want to downgrade the role when 'is_active' changes to False
         else:
             if self.user.role == 'coach':
                 self.user.role = 'player'
@@ -102,9 +91,7 @@ class Subscription(models.Model):
         return f"{self.user.email} - {'Active' if self.is_active else 'Inactive'}"
 
 
-# =========================
-# Team Member Model
-# =========================
+"""=========================Team Member Model========================="""
 class TeamMember(models.Model):
     ROLE_CHOICES = ( 
         ('assistant', 'Assistant Coach'),
@@ -137,10 +124,8 @@ class TeamMember(models.Model):
 
 
 
-# =========================
-# Invitation Token Model
-# =========================
-import uuid # unique token generation
+"""=========================Invitation Token Model========================="""
+
 
 class InvitationToken(models.Model):
     coach = models.ForeignKey(
@@ -149,22 +134,15 @@ class InvitationToken(models.Model):
         related_name='invitations',
         limit_choices_to={'role': 'coach'}
     )
-    # 1. টোকেন জেনারেট (The code/token generation)
     token = models.UUIDField(
         default=uuid.uuid4, 
         editable=False, 
         unique=True
     )
-    # 2. মেয়াদ (Expiration)
     expires_at = models.DateTimeField(
-        default=timezone.now() + timezone.timedelta(days=7) # Default 7 days validity
+        default=timezone.now() + timezone.timedelta(days=7)
     )
-    # 3. টোকেন ব্যবহারের স্থিতি (Usage status)
     is_used = models.BooleanField(default=False)
-    
-    # 4. প্রস্তাবিত ভূমিকা (Suggested Role for the user joining)
-    # এই ভূমিকাটি coach নির্ধারণ করতে পারেন, অথবা এটি খালি রাখা যেতে পারে 
-    # যেন জয়েন করার সময় ব্যবহারকারী নিজেই role select করতে পারে।
     ROLE_CHOICES = (
         ('assistant', 'Assistant Coach'),
         ('player', 'Player'),
