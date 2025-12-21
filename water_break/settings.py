@@ -133,39 +133,112 @@ TEMPLATES = [
 WSGI_APPLICATION = 'water_break.wsgi.application'
 
 
-
 """======================Admin deshboard design UNFOLD settings======================"""
 
 
 UNFOLD = {
-    "SITE_HEADER": "Water Break Admin Deshboard",
+    "SITE_HEADER": "Water Break Admin Dashboard",
     "SITE_TITLE": "Water Break",
-    "SITE_SYMBOL": "💧",   
-    "show_all_applications": False,
-    
-    # Gradient colors
+    "SITE_SYMBOL": "💧",
+    "SHOW_ALL_APPLICATIONS": False,
+    "DENSE": False,
     "COLORS": {
         "primary": {
-            "50": "236 254 255",
-            "100": "207 250 254",
-            "200": "165 243 252",
-            "300": "103 232 249",
-            "400": "34 211 238",
-            "500": "6 182 212",
-            "600": "8 145 178",
-            "700": "14 116 144",
-            "800": "21 94 117",
-            "900": "22 78 99",
+            "50": "236 254 255", "100": "207 250 254", "200": "165 243 252",
+            "300": "103 232 249", "400": "34 211 238", "500": "6 182 212",
+            "600": "8 145 178", "700": "14 116 144", "800": "21 94 117", "900": "22 78 99",
         },
     },
-    
+    "USER_AVATAR": "avatar",
+    "USER_STR_FUNC": "get_full_name", 
+
     "SIDEBAR": {
         "show_search": True,
-        "navigation": [], 
+        "navigation": [
+            {
+                "title": "USER MANAGEMENT",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Users",
+                        "link": "/admin/account/user/", 
+                        "icon": "manage_accounts",
+                    },
+                    {
+                        "title": "Profiles",
+                        "link": "/admin/account/profile/",
+                        "icon": "person", 
+                    },
+                    {
+                        "title": "Invitation tokens",
+                        "link": "/admin/account/invitationtoken/", # পাথ আপডেট করা হয়েছে
+                        "icon": "vpn_key", # টোকেনের জন্য কি-আইকন
+                    },
+                    {
+                        "title": "Subscriptions",
+                        "link": "/admin/account/subscription/", # পাথ আপডেট করা হয়েছে
+                        "icon": "card_membership", # মেম্বারশিপ আইকন
+                    },
+                    {
+                        "title": "Team members",
+                        "link": "/admin/account/teammember/", # পাথ আপডেট করা হয়েছে
+                        "icon": "groups", # টিমের জন্য গ্রুপ আইকন
+                    },
+                ],
+            },
+            {
+                "title": "PRACTICE PLAN",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Plans",
+                        "link": "/admin/plan/plan/",
+                        "icon": "format_list_bulleted", # তোর পাঠানো ছবির আইকন
+                    },
+                    {
+                        "title": "Drills",
+                        "link": "/admin/plan/drill/",
+                        "icon": "category", # তোর পাঠানো ছবির আইকন
+                    },
+                    {
+                        "title": "Blocks",
+                        "link": "/admin/plan/block/",
+                        "icon": "grid_view", # ব্লকের জন্য গ্রিড আইকন
+                    },
+                ],
+            },
+            {
+                "title": "SERVICE & CONTENT",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "About Us",
+                        "link": "/admin/service/aboutus/",
+                        "icon": "info",
+                    },
+                    {
+                        "title": "FAQs",
+                        "link": "/admin/service/faq/",
+                        "icon": "quiz",
+                    },
+                    {
+                        "title": "Terms & Conditions",
+                        "link": "/admin/service/termsandconditions/",
+                        "icon": "gavel",
+                    },
+                    {
+                        "title": "Privacy Policy",
+                        "link": "/admin/service/privacy_policy/",
+                        "icon": "policy",
+                    },
+                ],
+            },
+        ],
     },
-
-    
 }
+
+
+
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
@@ -176,7 +249,7 @@ UNFOLD = {
 #     }
 # }
 
-DATABASES = {
+DATABASES= {
     'default': {
         'ENGINE': os.getenv('ENGINE'),
         'NAME': os.getenv('NAME'),
@@ -190,7 +263,7 @@ DATABASES = {
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
-AUTH_PASSWORD_VALIDATORS = [
+AUTH_PASSWORD_VALIDATORS= [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
     },
@@ -209,41 +282,41 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE= 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE= 'UTC'
 
-USE_I18N = True
+USE_I18N= True
 
-USE_TZ = True
+USE_TZ= True
 
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = '/static/'
+STATIC_URL= '/static/'
 # STATICFILES_DIRS = [
 #     BASE_DIR / "static",
 # ]
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+STATIC_ROOT= BASE_DIR / 'staticfiles'
+MEDIA_URL= '/media/'
+MEDIA_ROOT= os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
-DEFAULT_AUTO_FIELD = os.getenv('DEFAULT_AUTO_FIELD')
+DEFAULT_AUTO_FIELD= os.getenv('DEFAULT_AUTO_FIELD')
 
 
-EMAIL_BACKEND = os.getenv('EMAIL_BACKEND')
-EMAIL_HOST = os.getenv('EMAIL_HOST')
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS') == 'True'
-EMAIL_PORT = os.getenv('EMAIL_PORT')
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_BACKEND= os.getenv('EMAIL_BACKEND')
+EMAIL_HOST= os.getenv('EMAIL_HOST')
+EMAIL_USE_TLS= os.getenv('EMAIL_USE_TLS') == 'True'
+EMAIL_PORT= os.getenv('EMAIL_PORT')
+EMAIL_HOST_USER= os.getenv('EMAIL_HOST_USER')
 
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+EMAIL_HOST_PASSWORD= os.getenv('EMAIL_HOST_PASSWORD')
 
 
-GOOGLE_OAUTH2_CLIENT_ID = os.getenv('GOOGLE_OAUTH2_CLIENT_ID')
-GOOGLE_OAUTH2_CLIENT_SECRET = os.getenv('GOOGLE_OAUTH2_CLIENT_SECRET')
-GOOGLE_OAUTH2_REDIRECT_URI = os.getenv('GOOGLE_OAUTH2_REDIRECT_URI')
+GOOGLE_OAUTH2_CLIENT_ID= os.getenv('GOOGLE_OAUTH2_CLIENT_ID')
+GOOGLE_OAUTH2_CLIENT_SECRET= os.getenv('GOOGLE_OAUTH2_CLIENT_SECRET')
+GOOGLE_OAUTH2_REDIRECT_URI= os.getenv('GOOGLE_OAUTH2_REDIRECT_URI')

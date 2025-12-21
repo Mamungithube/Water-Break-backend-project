@@ -56,6 +56,8 @@ class ProfileAdmin(ModelAdmin):
         return obj.user.email
     user_email.short_description = 'User Email'
 
+    
+
 """ ========================= Subscription Admin ========================= """
 
 @admin.register(Subscription)

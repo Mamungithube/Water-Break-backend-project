@@ -59,6 +59,7 @@ class Profile(models.Model):
 
     def __str__(self):
         return self.user.Fullname or self.user.email
+    
 
 
 """=========================Subscription Model========================="""

@@ -16,5 +16,5 @@ python manage.py migrate
 # python manage.py createsuperuser --noinput
 
 # Start server
-echo "Ohhhhhhhhhh Yehhhhhhhhhhhhhhhhhh Starting Django server...🚩🛡️🚩🛡️🚩🛡️🚩🛡️🚩🛡️🚩🛡️🚩🛡️🚩🛡️"
+echo "Oooooooooooooooooohh  Ye Aaaaaaaaaaaaaaaaaaaaa Ahhh Starting Django server............🚩🚩🚩🚩🚩🚩🚩🚩"
 exec "$@"

@@ -428,9 +428,18 @@ class BaseResponseMixin:
 
 
 
+"""=========================deleted account/views.py code========================="""
 
+class DeleteAccountView(APIView):
+    permission_classes = [IsAuthenticated]
 
-
+    def delete(self, request, *args, **kwargs):
+        user = request.user
+        user.delete()
+        return Response(
+            {"message": "Account deleted successfully."},
+            status=status.HTTP_204_NO_CONTENT
+        )
 
 
 

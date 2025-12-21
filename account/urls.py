@@ -8,8 +8,8 @@ from .views import (
     VerifyOTPApiView,
     ForgotPasswordAPIView,
     ChangePasswordViewSet,
-    LoginAPIView
-
+    LoginAPIView,
+    DeleteAccountView
 )
 
 urlpatterns = [
@@ -25,5 +25,6 @@ urlpatterns = [
     path('resend_otp/', ResendOTPApiView.as_view(), name='resend-otp'),
     path('verify_otp/', VerifyOTPApiView.as_view(), name='verify-otp'),
     path('forget-pass/', ForgotPasswordAPIView.as_view(),name='forget-password'),
-    path('change-pass/',ChangePasswordViewSet.as_view(({'post':'create'})),name="password-change")
+    path('change-pass/',ChangePasswordViewSet.as_view(({'post':'create'})),name="password-change"),
+    path('delete-account/', DeleteAccountView.as_view(), name='delete-account'),
 ]
