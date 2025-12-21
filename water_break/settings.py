@@ -137,9 +137,9 @@ WSGI_APPLICATION = 'water_break.wsgi.application'
 
 
 UNFOLD = {
-    "SITE_HEADER": "Water Break Admin Dashboard",
+    "SITE_HEADER": "Water Break Admin",
     "SITE_TITLE": "Water Break",
-    "SITE_SYMBOL": "💧",
+    "SITE_SYMBOL": "admin_panel_settings",
     "SHOW_ALL_APPLICATIONS": False,
     "DENSE": False,
     "COLORS": {
@@ -171,18 +171,18 @@ UNFOLD = {
                     },
                     {
                         "title": "Invitation tokens",
-                        "link": "/admin/account/invitationtoken/", # পাথ আপডেট করা হয়েছে
-                        "icon": "vpn_key", # টোকেনের জন্য কি-আইকন
+                        "link": "/admin/account/invitationtoken/", 
+                        "icon": "vpn_key",
                     },
                     {
                         "title": "Subscriptions",
-                        "link": "/admin/account/subscription/", # পাথ আপডেট করা হয়েছে
-                        "icon": "card_membership", # মেম্বারশিপ আইকন
+                        "link": "/admin/account/subscription/", 
+                        "icon": "card_membership",
                     },
                     {
                         "title": "Team members",
-                        "link": "/admin/account/teammember/", # পাথ আপডেট করা হয়েছে
-                        "icon": "groups", # টিমের জন্য গ্রুপ আইকন
+                        "link": "/admin/account/teammember/", 
+                        "icon": "groups",
                     },
                 ],
             },
@@ -193,17 +193,17 @@ UNFOLD = {
                     {
                         "title": "Plans",
                         "link": "/admin/plan/plan/",
-                        "icon": "format_list_bulleted", # তোর পাঠানো ছবির আইকন
+                        "icon": "format_list_bulleted", 
                     },
                     {
                         "title": "Drills",
                         "link": "/admin/plan/drill/",
-                        "icon": "category", # তোর পাঠানো ছবির আইকন
+                        "icon": "category", 
                     },
                     {
                         "title": "Blocks",
                         "link": "/admin/plan/block/",
-                        "icon": "grid_view", # ব্লকের জন্য গ্রিড আইকন
+                        "icon": "grid_view",
                     },
                 ],
             },
