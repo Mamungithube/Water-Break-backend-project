@@ -5,7 +5,7 @@ from django.urls import path, include
 router = routers.DefaultRouter()
 router.register(r'drills', DrillViewSet)
 router.register(r'Block', BlockViewSet)
-router.register(r'plan', PlanViewSet)
+router.register(r'prectice_plan', PlanViewSet)
 urlpatterns = [
     path('', include(router.urls)),
 ]

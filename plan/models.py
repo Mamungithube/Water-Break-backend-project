@@ -16,10 +16,10 @@ class Drill(models.Model):
 
 
 class Block(models.Model):
-    drill = models.OneToOneField(Drill, on_delete=models.CASCADE)
+    drill = models.ForeignKey(Drill, on_delete=models.CASCADE)
     title = models.CharField(max_length=50)
-    start_time  = models.DateTimeField()
-    end_time = models.DateTimeField()
+    start_time  = models.TimeField(auto_now=False, auto_now_add=False)
+    end_time = models.TimeField( auto_now=False, auto_now_add=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

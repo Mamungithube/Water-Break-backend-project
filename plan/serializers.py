@@ -5,7 +5,7 @@ class DrillSerializer(serializers.ModelSerializer):
     create_By = UserSerializer(read_only=True)
     class Meta:
         model = Drill
-        fields = ['id', 'create_By', 'name', 'category', 'description', 'date_created', 'date_modified']
+        fields = ['id', 'create_By','assign_team', 'name', 'category', 'description', 'date_created', 'date_modified']
         read_only_fields = ['date_created', 'date_modified']
 
     def create(self, validated_data):
@@ -19,11 +19,11 @@ class DrillSerializer(serializers.ModelSerializer):
 class BlockSerializer(serializers.ModelSerializer):
     class Meta:
         model = Block
-        fields = ['id',  'title', 'start_time', 'end_time', 'created_at', 'updated_at']
+        fields = ['id','drill',  'title', 'start_time', 'end_time', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
 
 class planSerializer(serializers.ModelSerializer):
     class Meta:
         model = plan
-        fields = ['id', 'plan_title', 'Drill', 'prectice_time', 'created_at', 'updated_at']
+        fields = ['id', 'plan_title', 'Plan_Block', 'prectice_time', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
