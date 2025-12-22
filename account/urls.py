@@ -1,4 +1,5 @@
-from django.urls import path
+from rest_framework.routers import DefaultRouter
+from django.urls import path, include
 from .views import (
     UserAPIView, 
     RegisterApiView,
@@ -9,14 +10,19 @@ from .views import (
     ForgotPasswordAPIView,
     ChangePasswordViewSet,
     LoginAPIView,
-    DeleteAccountView
+    DeleteAccountView,
+    teamviewset,
+    TeamMemberViewSet
 )
-
+router = DefaultRouter()
+router.register(r'createteams', teamviewset, basename='team'),
+router.register(r'team-members', TeamMemberViewSet)
 urlpatterns = [
     # user list and show
     path('user_all/', UserAPIView.as_view(), name='user-list'), 
     path('user/<int:pk>/', UserAPIView.as_view(), name='user-detail'),
 
+    # authontication part url 
 
     path('register/', RegisterApiView.as_view(), name='user-register'),
     path('auth/google/login/', GoogleLoginInitView.as_view(), name='google-login'),
@@ -27,4 +33,8 @@ urlpatterns = [
     path('forget-pass/', ForgotPasswordAPIView.as_view(),name='forget-password'),
     path('change-pass/',ChangePasswordViewSet.as_view(({'post':'create'})),name="password-change"),
     path('delete-account/', DeleteAccountView.as_view(), name='delete-account'),
+
+    # team url 
+
+    path('', include(router.urls)),
 ]

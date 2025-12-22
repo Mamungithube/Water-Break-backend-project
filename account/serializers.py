@@ -1,13 +1,10 @@
 
 from rest_framework import serializers
 from .utils import generate_otp
-from .models import Profile
 from django.core.mail import send_mail, EmailMessage
 from rest_framework_simplejwt.tokens import RefreshToken
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
 from rest_framework import serializers
-from .models import User, Profile, User
+from .models import User, Profile, TeamMember,Team
 from django.contrib.auth import get_user_model
 from django.contrib.auth import password_validation
 from django.template.loader import render_to_string
@@ -139,3 +136,42 @@ class UserLoginSerializer(serializers.ModelSerializer):
         fields = ['email', 'tokens']
 
 
+"""=============================Team serializers========================="""
+
+class teamserializers(serializers.ModelSerializer):
+    coach = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(role='coach'), 
+        required=False,  # required=False যাতে ফ্রন্টএন্ড থেকে পাঠাতে না হয়
+        allow_null=True
+    )
+    
+    class Meta:
+        model = Team
+        fields = '__all__'
+        read_only_fields = ['coach']  # শুধু রিড অনলি করলে হবে না
+    
+    def create(self, validated_data):
+        # স্বয়ংক্রিয়ভাবে বর্তমান ইউজারকে কোচ হিসেবে সেট করুন
+        validated_data['coach'] = self.context['request'].user
+        return super().create(validated_data)
+    
+"""=============================Team Member serializers========================="""
+class TeamMemberSerializer(serializers.ModelSerializer):
+    member_email = serializers.EmailField(source='member.email', read_only=True)
+    role_display = serializers.CharField(source='get_role_display', read_only=True)
+
+    class Meta:
+        model = TeamMember
+        fields = [
+            'id', 'team', 'member', 'member_email', 
+            'role', 'role_display', 'is_role_approved', 'joined_at'
+        ]
+        read_only_fields = ['is_role_approved', 'joined_at']
+
+    def validate(self, attrs):
+        instance = TeamMember(**attrs)
+        try:
+            instance.clean()
+        except serializers.ValidationError as e:
+            raise serializers.ValidationError(e.message)
+        return attrs

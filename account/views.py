@@ -5,20 +5,19 @@ from google.oauth2 import id_token
 from django.shortcuts import redirect
 from rest_framework import status, serializers
 from django.contrib.auth import get_user_model, login
-from re import search
 from django.conf import settings
+from rest_framework.viewsets import ModelViewSet
 import requests
-from rest_framework import (
-    status
-)
 from .serializers import (
     UserSerializer,
     RegistrationSerializer,
     ResetPasswordSerializer,
     ChangePasswordSerializer,
-    LoginSerializer
+    LoginSerializer,
+    teamserializers,
+    TeamMemberSerializer
 )
-from .models import Profile
+from .models import Profile,Team,TeamMember
 from rest_framework import viewsets
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
@@ -440,6 +439,73 @@ class DeleteAccountView(APIView):
             {"message": "Account deleted successfully."},
             status=status.HTTP_204_NO_CONTENT
         )
+
+
+
+"""=============================Team view set==========================================="""
+
+class teamviewset(viewsets.ModelViewSet):
+    queryset = Team.objects.all()
+    serializer_class = teamserializers
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(coach=self.request.user)
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    
+"""================================Team Member View set=================================="""
+
+
+class TeamMemberViewSet(viewsets.ModelViewSet):
+    queryset = TeamMember.objects.all()
+    serializer_class = TeamMemberSerializer
+
+    def get_queryset(self):
+        # Optional: Filter by team if team_id is provided in query params
+        team_id = self.request.query_params.get('team_id')
+        if team_id:
+            return self.queryset.filter(team_id=team_id)
+        return self.queryset
+
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        """Custom endpoint to approve a team member"""
+        member = self.get_object()
+        
+        # Security: Only the team coach should be able to approve
+        if request.user != member.team.coach:
+            return Response(
+                {"detail": "Only the team coach can approve members."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        member.is_role_approved = True
+        member.save()
+        return Response({'status': 'member approved'})
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
