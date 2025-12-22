@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils import timezone
 import uuid
+from datetime import timedelta
 """=========================Custom User Manager========================="""
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -91,7 +92,6 @@ class Subscription(models.Model):
 
 
 """=========================Team Member Model========================="""
-from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
@@ -166,11 +166,6 @@ class TeamMember(models.Model):
 
 
 """=========================Invitation Token Model========================="""
-
-import uuid
-from django.db import models
-from django.utils import timezone
-from datetime import timedelta
 
 
 def get_expiry_date():

@@ -6,12 +6,13 @@ from .models import Drill, Block, plan
 @admin.register(Drill)
 class DrillAdmin(ModelAdmin):
     # ড্যাশবোর্ডে কোন কলামগুলো দেখাবে
-    list_display = ["name", "category", "create_By", "date_created"]
+    list_display = ["name", "get_assign_teams", "category", "create_By", "date_created"]
     
     fieldsets = (
         ("Main Information", {
             "fields": (
                 "name",
+                "assign_team",
                 "category",
                 "description",
             )
@@ -37,18 +38,21 @@ class DrillAdmin(ModelAdmin):
             return self.readonly_fields + ["create_By"]
         return self.readonly_fields
 
+    def get_assign_teams(self, obj):
+        return ", ".join([t.name for t in obj.assign_team.all()])
+    get_assign_teams.short_description = "Assign Teams"
+
 
 @admin.register(Block)
 class BlockAdmin(ModelAdmin):
     # ড্যাশবোর্ডে কোন কলামগুলো দেখাবে
-    list_display = ["title", "assign_team", "drill", "start_time", "end_time"]
-    list_filter = ["drill", "assign_team", "start_time"]
+    list_display = ["title",  "drill", "start_time", "end_time"]
+    list_filter = ["drill",  "start_time"]
     search_fields = ["title", "drill__name"]
     
     fieldsets = (
         ("Main Information", {
             "fields": (
-                "assign_team",
                 "drill",
                 "title",
                 "start_time",
@@ -60,16 +64,20 @@ class BlockAdmin(ModelAdmin):
 
 @admin.register(plan)
 class PlanAdmin(ModelAdmin):
-    list_display = ["plan_title", "Drill", "prectice_time", "created_at"]
-    list_filter = ["Drill", "prectice_time"]
-    search_fields = ["plan_title", "Drill__name"]
+    list_display = ["plan_title", "prectice_time", "get_plan_blocks", "created_at"]
+    list_filter = ["prectice_time"]
+    search_fields = ["plan_title"]
     
     fieldsets = (
         ("Main Information", {
             "fields": (
                 "plan_title",
-                "Drill",
+                "Plan_Block",
                 "prectice_time",
             )
         }),
     )
+
+    def get_plan_blocks(self, obj):
+        return ", ".join([b.title for b in obj.Plan_Block.all()])
+    get_plan_blocks.short_description = "Blocks"
