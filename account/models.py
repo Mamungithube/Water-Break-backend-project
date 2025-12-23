@@ -105,6 +105,7 @@ class Team(models.Model):
         limit_choices_to={'role': 'coach'}
     )
     name = models.CharField(max_length=100)
+    Team_Category = models.CharField(max_length=250)
     team_profile_pic = models.ImageField(upload_to='team_profiles/', blank=True, null=True)
     members = models.ManyToManyField(
         User,

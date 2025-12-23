@@ -17,13 +17,14 @@ from .views import (
 router = DefaultRouter()
 router.register(r'createteams', teamviewset, basename='team'),
 router.register(r'team-members', TeamMemberViewSet)
+
+
 urlpatterns = [
-    # user list and show
+    # user list 
     path('user_all/', UserAPIView.as_view(), name='user-list'), 
     path('user/<int:pk>/', UserAPIView.as_view(), name='user-detail'),
 
     # authontication part url 
-
     path('register/', RegisterApiView.as_view(), name='user-register'),
     path('auth/google/login/', GoogleLoginInitView.as_view(), name='google-login'),
     path('login/',LoginAPIView.as_view(),name='login'),
@@ -35,6 +36,5 @@ urlpatterns = [
     path('delete-account/', DeleteAccountView.as_view(), name='delete-account'),
 
     # team url 
-
     path('', include(router.urls)),
 ]

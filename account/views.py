@@ -1,13 +1,9 @@
-import os
 from google_auth_oauthlib.flow import Flow
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from django.shortcuts import redirect
-from rest_framework import status, serializers
 from django.contrib.auth import get_user_model, login
 from django.conf import settings
-from rest_framework.viewsets import ModelViewSet
-import requests
 from .serializers import (
     UserSerializer,
     RegistrationSerializer,
@@ -18,29 +14,24 @@ from .serializers import (
     TeamMemberSerializer
 )
 from .models import Profile,Team,TeamMember
-from rest_framework import viewsets
-from rest_framework.throttling import UserRateThrottle
+from rest_framework import viewsets,status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from django.core.mail import EmailMultiAlternatives, send_mail
 from django.template.loader import render_to_string
 from django.contrib.auth import authenticate, login
 from django.shortcuts import get_object_or_404
 from .utils import generate_otp
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from django.contrib.auth import get_user_model
-from rest_framework import status
+from rest_framework.permissions import IsAuthenticated, IsAdminUser,AllowAny
 from django.db.models import Q  # For search
 from rest_framework.decorators import action
 from django.conf import settings
 from django.core.mail import EmailMessage
-from rest_framework.permissions import AllowAny
 User = get_user_model()
 
 
 class UserAPIView(APIView):
-    # permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser]
 
     def get(self, request, pk=None):
         if pk:
@@ -50,7 +41,6 @@ class UserAPIView(APIView):
 
         users = User.objects.all()
 
-        # Query params
         email = request.GET.get('email')
         search = request.GET.get('search')
 
@@ -62,8 +52,6 @@ class UserAPIView(APIView):
                 Q(Fullname__icontains=search) |
                 Q(email__icontains=search)
             )
-
-        # ✅ Pagination parameters
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 10))
         start = (page - 1) * page_size
@@ -91,18 +79,12 @@ class UserAPIView(APIView):
 
 
 """ ----------------Gooooooooooogle auth  view------------------- """
-
-
-User = get_user_model()
-
-
 class GoogleLoginInitView(APIView):
     """
     Step 1: Generate Google OAuth URL and redirect user
     """
 
     def get(self, request):
-        # Google OAuth Flow তৈরি করুন
         flow = Flow.from_client_config(
             {
                 "web": {
@@ -122,32 +104,24 @@ class GoogleLoginInitView(APIView):
 
         flow.redirect_uri = settings.GOOGLE_OAUTH2_REDIRECT_URI
 
-        # Authorization URL তৈরি করুন
         authorization_url, state = flow.authorization_url(
             access_type='offline',
             include_granted_scopes='true',
-            prompt='consent'  # প্রতিবার consent চাইবে
+            prompt='consent'
         )
-
-        # State session এ save করুন (CSRF protection)
         request.session['google_auth_state'] = state
-
         return Response({
             'authorization_url': authorization_url
         }, status=status.HTTP_200_OK)
-
 
 class GoogleCallbackView(APIView):
     """
     Step 2: Handle Google callback and create/login user
     """
-
     def get(self, request):
-        # Authorization code এবং state পান
         code = request.GET.get('code')
         state = request.GET.get('state')
 
-        # State verification (CSRF protection)
         saved_state = request.session.get('google_auth_state')
         if not state or state != saved_state:
             return Response(
@@ -156,7 +130,6 @@ class GoogleCallbackView(APIView):
             )
 
         try:
-            # OAuth flow complete করুন
             flow = Flow.from_client_config(
                 {
                     "web": {
@@ -176,10 +149,7 @@ class GoogleCallbackView(APIView):
 
             flow.redirect_uri = settings.GOOGLE_OAUTH2_REDIRECT_URI
 
-            # Authorization code দিয়ে token পান
             flow.fetch_token(code=code)
-
-            # Credentials থেকে ID token verify করুন
             credentials = flow.credentials
             id_info = id_token.verify_oauth2_token(
                 credentials.id_token,
@@ -187,7 +157,6 @@ class GoogleCallbackView(APIView):
                 settings.GOOGLE_OAUTH2_CLIENT_ID
             )
 
-            # User তথ্য extract করুন
             email = id_info.get('email')
             name = id_info.get('name', '')
             picture = id_info.get('picture', '')
@@ -198,37 +167,29 @@ class GoogleCallbackView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # User তৈরি বা খুঁজে আনুন
             user, created = User.objects.get_or_create(email=email)
 
             print(f"Saving user: {email}, Name: {name}") 
             user.Fullname = name
             user.social_auth_provider = "google"
             user.is_active = True
-            user.save() # এটি এখন কাজ করবে যদি URL ঠিক থাকে
-
-            # Profile আপডেট
+            user.save()
             profile, p_created = Profile.objects.get_or_create(user=user)
             profile.social_auth_provider = "google"
             profile.is_verified = True
 
-            # ছবি সেভ করা (আপনার প্রোফাইল মডেলে image বা picture ফিল্ড থাকলে)
             if picture:
                 profile.profile_image = picture
-            profile.save()  # <--- প্রোফাইল ডাটা সেভ নিশ্চিত করবে
+            profile.save() 
 
-            # Django session login
             login(request, user)
 
-            # JWT tokens generate করুন
             refresh = RefreshToken.for_user(user)
 
-            # Frontend এ redirect করুন tokens সহ
             frontend_url = f"http://localhost:3000/auth/callback?access={str(refresh.access_token)}&refresh={str(refresh)}"
 
             return redirect(frontend_url)
 
-            # অথবা JSON response পাঠান (যদি API হিসেবে ব্যবহার করতে চান)
             # return Response({
             #     "refresh": str(refresh),
             #     "access": str(refresh.access_token),
@@ -309,11 +270,8 @@ class ResendOTPApiView(APIView):
 
         except Exception as e:
             return Response({"Error":f'Failed to send email: {str(e)}'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-
 
 """ ----------------Forgot Password view------------------- """
-
 class ForgotPasswordAPIView(APIView):
     serializer_class = ResetPasswordSerializer
 
@@ -335,9 +293,7 @@ class ForgotPasswordAPIView(APIView):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
 """ -------------------Change Password view----------------------- """
-
 class ChangePasswordViewSet(viewsets.GenericViewSet):
     serializer_class = ChangePasswordSerializer
     permission_classes = [IsAuthenticated] 
@@ -359,11 +315,7 @@ class ChangePasswordViewSet(viewsets.GenericViewSet):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-
-
-
 """ ----------------Login view------------------- """
-from rest_framework.permissions import AllowAny
 
 class LoginAPIView(APIView):
     serializer_class = LoginSerializer
@@ -425,10 +377,7 @@ class BaseResponseMixin:
         }
         return Response(response, status=status_code)
 
-
-
 """=========================deleted account/views.py code========================="""
-
 class DeleteAccountView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -439,11 +388,7 @@ class DeleteAccountView(APIView):
             {"message": "Account deleted successfully."},
             status=status.HTTP_204_NO_CONTENT
         )
-
-
-
 """=============================Team view set==========================================="""
-
 class teamviewset(viewsets.ModelViewSet):
     queryset = Team.objects.all()
     serializer_class = teamserializers
@@ -462,17 +407,12 @@ class teamviewset(viewsets.ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         return super().update(request, *args, **kwargs)
-
-    
 """================================Team Member View set=================================="""
-
-
 class TeamMemberViewSet(viewsets.ModelViewSet):
     queryset = TeamMember.objects.all()
     serializer_class = TeamMemberSerializer
 
     def get_queryset(self):
-        # Optional: Filter by team if team_id is provided in query params
         team_id = self.request.query_params.get('team_id')
         if team_id:
             return self.queryset.filter(team_id=team_id)
@@ -483,7 +423,6 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
         """Custom endpoint to approve a team member"""
         member = self.get_object()
         
-        # Security: Only the team coach should be able to approve
         if request.user != member.team.coach:
             return Response(
                 {"detail": "Only the team coach can approve members."},
@@ -493,16 +432,6 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
         member.is_role_approved = True
         member.save()
         return Response({'status': 'member approved'})
-
-
-
-
-
-
-
-
-
-
 
 
 
