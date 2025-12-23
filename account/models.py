@@ -110,9 +110,7 @@ class Team(models.Model):
     members = models.ManyToManyField(
         User,
         through='TeamMember',
-        related_name='teams',
-        null=True,
-        blank=True
+        related_name='teams'
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
