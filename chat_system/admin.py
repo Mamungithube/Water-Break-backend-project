@@ -73,7 +73,7 @@ class TeamChatMessageAdmin(ModelAdmin):
     @display(description="Full Message Preview")
     def get_message_preview(self, obj):
         """Show message in detail view with line breaks"""
-        return format_html('<div style="white-space: pre-wrap; padding: 10px; background: #f5f5f5; border-radius: 5px;">{}</div>', obj.message)
+        return format_html('<div style="black-space: pre-wrap; padding: 10px; border-radius: 5px;">{}</div>', obj.message)
     
     # Optional: Add custom actions
     actions = ['mark_as_important']

@@ -12,7 +12,9 @@ from .views import (
     LoginAPIView,
     DeleteAccountView,
     teamviewset,
-    TeamMemberViewSet
+    TeamMemberViewSet,
+    ProfileDetailsView,
+    ProfileUpdateView
 )
 router = DefaultRouter()
 router.register(r'createteams', teamviewset, basename='team'),
@@ -34,6 +36,10 @@ urlpatterns = [
     path('forget-pass/', ForgotPasswordAPIView.as_view(),name='forget-password'),
     path('change-pass/',ChangePasswordViewSet.as_view(({'post':'create'})),name="password-change"),
     path('delete-account/', DeleteAccountView.as_view(), name='delete-account'),
+
+    # profile url 
+    path('profile-data/',ProfileDetailsView.as_view(),name='Profile-Details'),
+    path('profile-update/',ProfileUpdateView.as_view(),name = 'Profile-Update'),
 
     # team url 
     path('', include(router.urls)),

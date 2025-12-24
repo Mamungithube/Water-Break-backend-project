@@ -11,10 +11,12 @@ from .serializers import (
     ChangePasswordSerializer,
     LoginSerializer,
     teamserializers,
-    TeamMemberSerializer
+    TeamMemberSerializer,
+    ProfileSerializer,
+    ProfileUpdateSerializer
 )
 from .models import Profile,Team,TeamMember
-from rest_framework import viewsets,status
+from rest_framework import generics, permissions, status, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.template.loader import render_to_string
@@ -407,6 +409,7 @@ class teamviewset(viewsets.ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         return super().update(request, *args, **kwargs)
+    
 """================================Team Member View set=================================="""
 class TeamMemberViewSet(viewsets.ModelViewSet):
     queryset = TeamMember.objects.all()
@@ -434,11 +437,35 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
         return Response({'status': 'member approved'})
 
 
+"""------------------------Profile Detail View-----------------------------------"""
+
+class ProfileDetailsView(generics.RetrieveAPIView):
+    serializer_class = ProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        profile,created = Profile.objects.get_or_create(user = self.request.user)
+        return profile
 
 
+""" ------------------------Profile UpdateView view--------------------------- """
 
+class ProfileUpdateView(generics.RetrieveAPIView):
+    serializer_class = ProfileUpdateSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
+    def get_object(self):
+        profile,created = Profile.objects.get_or_create(user = self.request.user)
+        return profile
 
+    def update(self,request,*args, **kwargs):
+        partial = kwargs.pop('partial',False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance,data=request.data,partial=partial)
+        serializer.is_valid(raise_exception = True)
+        self.perform_update(serializer)
+        profile_serializer = ProfileSerializer(instance)
+        return Response(profile_serializer.data)
 
 # from rest_framework import generics, status
 # from rest_framework.permissions import IsAuthenticated

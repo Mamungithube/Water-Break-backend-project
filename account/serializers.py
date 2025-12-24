@@ -9,6 +9,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth import password_validation
 from django.template.loader import render_to_string
 from django.conf import settings
+from django.forms import fields
 User = get_user_model()
 
 
@@ -175,3 +176,46 @@ class TeamMemberSerializer(serializers.ModelSerializer):
         except serializers.ValidationError as e:
             raise serializers.ValidationError(e.message)
         return attrs
+    
+
+
+
+"""========================================profile serializers=============================="""
+
+class ProfileSerializer(serializers.ModelSerializer):
+    fullname = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Profile
+        fields = ['fullname', 'email', 'profile_picture']
+
+    def get_fullname(self, obj):
+        return getattr(getattr(obj, 'user', None), 'Fullname', '') or ''
+
+    def get_email(self, obj):
+        return getattr(getattr(obj, 'user', None), 'email', '') or ''
+
+
+"""==============================================profile update serializers========================="""
+
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    # expose frontend-friendly `fullname` but map to `user.Fullname` on save
+    fullname = serializers.CharField(source='user.Fullname', required=False, allow_blank=True)
+
+    class Meta:
+        model = Profile
+        fields = ['fullname', 'profile_picture']
+
+    def update(self, instance, validated_data):
+        # handle nested user data (source='user.Fullname')
+        user_data = validated_data.pop('user', {})
+        if 'Fullname' in user_data:
+            setattr(instance.user, 'Fullname', user_data['Fullname'])
+            instance.user.save()
+
+        # update remaining profile fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
