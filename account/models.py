@@ -105,7 +105,6 @@ class Team(models.Model):
         limit_choices_to={'role': 'coach'}
     )
     name = models.CharField(max_length=100)
-    Team_Category = models.CharField(max_length=250)
     team_profile_pic = models.ImageField(upload_to='team_profiles/', blank=True, null=True)
     members = models.ManyToManyField(
         User,
@@ -118,6 +117,14 @@ class Team(models.Model):
 
     def __str__(self):
         return f"{self.name} (Coach: {self.coach.email})"
+    
+    def get_active_token(self):
+        """Get the active invitation token for this team"""
+        try:
+            token = self.invitation_tokens.filter(expires_at__gt=timezone.now()).first()
+            return token
+        except:
+            return None
 
 class TeamMember(models.Model):
     ROLE_CHOICES = (
@@ -156,12 +163,12 @@ class TeamMember(models.Model):
                 f"Coach {self.member.email} cannot be added as a member of their own team."
             )
 
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super().save(*args, **kwargs)
+    def clean(self):
+        if self.team.coach == self.member:
+            raise ValidationError("Coach cannot join their own team.")
 
     def __str__(self):
-        return f"{self.member.email} ({self.get_role_display()})"
+        return f"{self.member.email} - {self.role}"
 
 
 
@@ -170,46 +177,39 @@ class TeamMember(models.Model):
 
 
 def get_expiry_date():
-    """Return expiry date 7 days from now"""
-    return timezone.now() + timedelta(days=7)
-
+    return timezone.now() + timedelta(days = 365)
 
 class InvitationToken(models.Model):
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name='invitation_tokens'
+    )
     coach = models.ForeignKey(
-        'User',  # বা 'account.User' আপনার app structure অনুযায়ী
+        User,
         on_delete=models.CASCADE,
         related_name='invitations',
         limit_choices_to={'role': 'coach'}
     )
-    token = models.UUIDField(
-        default=uuid.uuid4, 
-        editable=False, 
-        unique=True
+    token = models.CharField(
+        max_length=10,
+        unique=True,
+        editable=False
     )
-    expires_at = models.DateTimeField(
-        default=get_expiry_date 
-    )
-    is_used = models.BooleanField(default=False)
-    
-    ROLE_CHOICES = (
-        ('assistant', 'Assistant Coach'),
-        ('player', 'Player'),
-    )
-    suggested_role = models.CharField(
-        max_length=20,
-        choices=ROLE_CHOICES,
-        default='player'
-    )
+    expires_at = models.DateTimeField(default=get_expiry_date)
     created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['-created_at']
 
     def is_valid(self):
-        """Checks if the token is not used and not expired."""
-        return not self.is_used and self.expires_at > timezone.now()
+        return self.expires_at > timezone.now()
+
+    def save(self, *args, **kwargs):
+        if not self.token:
+            self.token = uuid.uuid4().hex[:8].upper()
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Token for {self.coach.email} - Valid: {self.is_valid()}"
-    
-    class Meta:
-        verbose_name = "Invitation Token"
-        verbose_name_plural = "Invitation Tokens"
-        ordering = ['-created_at']
+        return f"{self.token} - {self.team.name} (Expires: {self.expires_at.strftime('%Y-%m-%d %H:%M')})"

@@ -29,11 +29,12 @@ services:
   web:
     build: .
     container_name: django_backend
-    command: daphne -b 0.0.0.0 -p 8000 water_break.asgi:application
+    # command: daphne -b 0.0.0.0 -p 8000 water_break.asgi:application
+    command: daphne -b 0.0.0.0 -p 8001 water_break.asgi:application
     volumes:
       - .:/app
     ports:
-      - "8000:8000"
+      - "8001:8001"
     env_file:
       - .env  
     depends_on:

@@ -138,46 +138,148 @@ class UserLoginSerializer(serializers.ModelSerializer):
 
 
 """=============================Team serializers========================="""
+from rest_framework import serializers
+from .models import Team, TeamMember, InvitationToken
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+class InvitationTokenSerializer(serializers.ModelSerializer):
+    team_name = serializers.CharField(source='team.name', read_only=True)
+    coach_email = serializers.CharField(source='coach.email', read_only=True)
+    is_valid = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = InvitationToken
+        fields = [
+            'id', 'team', 'team_name', 'coach', 'coach_email', 
+            'token', 'expires_at', 'created_at', 'is_active', 'is_valid'
+        ]
+        read_only_fields = ['token', 'coach', 'created_at']
+    
+    def get_is_valid(self, obj):
+        return obj.is_valid()
+
 
 class teamserializers(serializers.ModelSerializer):
     coach = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(role='coach'), 
-        required=False,  # required=False যাতে ফ্রন্টএন্ড থেকে পাঠাতে না হয়
+        required=False,
         allow_null=True
     )
+    active_invitation_token = serializers.SerializerMethodField()
+    members_count = serializers.SerializerMethodField()
     
     class Meta:
         model = Team
-        fields = '__all__'
-        read_only_fields = ['coach']  # শুধু রিড অনলি করলে হবে না
+        fields = [
+            'id', 'coach', 'name', 'team_profile_pic',
+            'created_at', 'updated_at', 'active_invitation_token', 'members_count'
+        ]
+        read_only_fields = ['coach', 'created_at', 'updated_at']
+    
+    def get_active_invitation_token(self, obj):
+        token = obj.get_active_token()
+        if token:
+            return {
+                'token': token.token,
+                'expires_at': token.expires_at,
+                'is_valid': token.is_valid()
+            }
+        return None
+    
+    def get_members_count(self, obj):
+        return obj.memberships.filter(is_role_approved=True).count()
     
     def create(self, validated_data):
         # স্বয়ংক্রিয়ভাবে বর্তমান ইউজারকে কোচ হিসেবে সেট করুন
         validated_data['coach'] = self.context['request'].user
-        return super().create(validated_data)
-    
+        team = super().create(validated_data)
+        
+        # Automatically create invitation token
+        InvitationToken.objects.create(
+            team=team,
+            coach=self.context['request'].user
+        )
+        
+        return team
+
+
 """=============================Team Member serializers========================="""
 class TeamMemberSerializer(serializers.ModelSerializer):
     member_email = serializers.EmailField(source='member.email', read_only=True)
+    member_name = serializers.SerializerMethodField()
     role_display = serializers.CharField(source='get_role_display', read_only=True)
+    team_name = serializers.CharField(source='team.name', read_only=True)
 
     class Meta:
         model = TeamMember
         fields = [
-            'id', 'team', 'member', 'member_email', 
+            'id', 'team', 'team_name', 'member', 'member_email', 'member_name',
             'role', 'role_display', 'is_role_approved', 'joined_at'
         ]
-        read_only_fields = ['is_role_approved', 'joined_at']
+        read_only_fields = ['is_role_approved', 'joined_at', 'member_email']
+    
+    def get_member_name(self, obj):
+        return f"{obj.member.first_name} {obj.member.last_name}".strip() or obj.member.email
 
     def validate(self, attrs):
-        instance = TeamMember(**attrs)
-        try:
-            instance.clean()
-        except serializers.ValidationError as e:
-            raise serializers.ValidationError(e.message)
+        team = attrs.get('team')
+        member = attrs.get('member')
+        
+        # Check if coach is trying to join their own team
+        if team and member and team.coach == member:
+            raise serializers.ValidationError(
+                "Coach cannot join their own team as a member."
+            )
+        
+        # Check if member already exists in team
+        if team and member:
+            if TeamMember.objects.filter(team=team, member=member).exists():
+                raise serializers.ValidationError(
+                    "This member is already part of the team."
+                )
+        
         return attrs
-    
 
+
+"""=============================Join Team with Token Serializer========================="""
+class JoinTeamSerializer(serializers.Serializer):
+    token = serializers.CharField(max_length=10)
+    role = serializers.ChoiceField(choices=TeamMember.ROLE_CHOICES)
+    
+    def validate_token(self, value):
+        try:
+            invitation = InvitationToken.objects.get(token=value.upper())
+            if not invitation.is_valid():
+                raise serializers.ValidationError("This invitation token has expired or is inactive.")
+            return value.upper()
+        except InvitationToken.DoesNotExist:
+            raise serializers.ValidationError("Invalid invitation token.")
+    
+    def save(self, user):
+        token = self.validated_data['token']
+        role = self.validated_data['role']
+        
+        invitation = InvitationToken.objects.get(token=token)
+        
+        # Check if user is the coach
+        if invitation.team.coach == user:
+            raise serializers.ValidationError("Coach cannot join their own team.")
+        
+        # Check if already a member
+        if TeamMember.objects.filter(team=invitation.team, member=user).exists():
+            raise serializers.ValidationError("You are already a member of this team.")
+        
+        # Create team member (pending approval)
+        team_member = TeamMember.objects.create(
+            team=invitation.team,
+            member=user,
+            role=role,
+            is_role_approved=False  # Needs coach approval
+        )
+        
+        return team_member
 
 
 """========================================profile serializers=============================="""

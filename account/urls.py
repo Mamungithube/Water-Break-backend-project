@@ -14,12 +14,13 @@ from .views import (
     teamviewset,
     TeamMemberViewSet,
     ProfileDetailsView,
-    ProfileUpdateView
+    ProfileUpdateView,
+    InvitationTokenViewSet
 )
 router = DefaultRouter()
 router.register(r'createteams', teamviewset, basename='team'),
 router.register(r'team-members', TeamMemberViewSet)
-
+router.register(r'invitation-tokens', InvitationTokenViewSet, basename='invitation-token')
 
 urlpatterns = [
     # user list 

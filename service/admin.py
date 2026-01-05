@@ -1,36 +1,9 @@
 
-from .models import FAQ, privacy_policy, termsandconditions, aboutus
+from .models import privacy_policy, termsandconditions, aboutus
 # Register your models here.
 
 from django.contrib import admin
 from unfold.admin import ModelAdmin # Unfold এর ModelAdmin ব্যবহার করুন
-
-@admin.register(FAQ)
-class FAQAdmin(ModelAdmin):
-    list_display = ('question', 'is_published', 'created_at')
-    list_editable = ('is_published',)
-    
-
-    fieldsets = (
-        ("FAQ Content", {
-            "classes": ["wide"],
-            "fields": (
-                "question", 
-                "answer",
-            ),
-        }),
-        ("Status & Dates", {
-            "classes": ["wide"],
-            "fields": (
-                "is_published",
-                "created_at",
-                "updated_at",
-            ),
-        }),
-    )
-    
-    readonly_fields = ('created_at', 'updated_at')
-
 
 @admin.register(privacy_policy)
 class PrivacyPolicyAdmin(ModelAdmin):

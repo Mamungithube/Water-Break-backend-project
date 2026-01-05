@@ -185,6 +185,11 @@ UNFOLD = {
     #                     "link": "/admin/account/teammember/", 
     #                     "icon": "groups",
     #                 },
+    #                 {
+    #                     "title": "All Teams",
+    #                     "link": "/admin/account/team/", 
+    #                     "icon": "group",
+    #                 },
     #             ],
     #         },
     #         {
@@ -217,11 +222,11 @@ UNFOLD = {
     #                     "link": "/admin/service/aboutus/",
     #                     "icon": "info",
     #                 },
-    #                 {
-    #                     "title": "FAQs",
-    #                     "link": "/admin/service/faq/",
-    #                     "icon": "quiz",
-    #                 },
+    #                 # {
+    #                 #     "title": "FAQs",
+    #                 #     "link": "/admin/service/faq/",
+    #                 #     "icon": "quiz",
+    #                 # },
     #                 {
     #                     "title": "Terms & Conditions",
     #                     "link": "/admin/service/termsandconditions/",
