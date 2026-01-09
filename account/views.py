@@ -2,6 +2,10 @@ from google_auth_oauthlib.flow import Flow
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from django.shortcuts import redirect
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+from django.core.mail import send_mail
+from django.conf import settings
 from django.contrib.auth import get_user_model, login
 from django.conf import settings
 from .serializers import (
@@ -15,9 +19,10 @@ from .serializers import (
     ProfileSerializer,
     ProfileUpdateSerializer,
     InvitationTokenSerializer,
-    JoinTeamSerializer
+    JoinTeamSerializer,
+    NotificationSerializer
 )
-from .models import InvitationToken, Profile,Team,TeamMember
+from .models import InvitationToken, Profile, Team, TeamMember, Notification
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -26,7 +31,7 @@ from django.contrib.auth import authenticate, login
 from django.shortcuts import get_object_or_404
 from .utils import generate_otp
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.permissions import IsAuthenticated, IsAdminUser,AllowAny
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from django.db.models import Q  # For search
 from rest_framework.decorators import action
 from django.conf import settings
@@ -83,6 +88,8 @@ class UserAPIView(APIView):
 
 
 """ ----------------Gooooooooooogle auth  view------------------- """
+
+
 class GoogleLoginInitView(APIView):
     """
     Step 1: Generate Google OAuth URL and redirect user
@@ -118,10 +125,12 @@ class GoogleLoginInitView(APIView):
             'authorization_url': authorization_url
         }, status=status.HTTP_200_OK)
 
+
 class GoogleCallbackView(APIView):
     """
     Step 2: Handle Google callback and create/login user
     """
+
     def get(self, request):
         code = request.GET.get('code')
         state = request.GET.get('state')
@@ -173,7 +182,7 @@ class GoogleCallbackView(APIView):
 
             user, created = User.objects.get_or_create(email=email)
 
-            print(f"Saving user: {email}, Name: {name}") 
+            print(f"Saving user: {email}, Name: {name}")
             user.Fullname = name
             user.social_auth_provider = "google"
             user.is_active = True
@@ -184,7 +193,7 @@ class GoogleCallbackView(APIView):
 
             if picture:
                 profile.profile_image = picture
-            profile.save() 
+            profile.save()
 
             login(request, user)
 
@@ -214,22 +223,23 @@ class GoogleCallbackView(APIView):
 
 """ ----------------Registration view------------------- """
 
+
 class RegisterApiView(APIView):
     serializer_class = RegistrationSerializer
 
-    def post(self,request):
-        serializers = self.serializer_class(data = request.data)
+    def post(self, request):
+        serializers = self.serializer_class(data=request.data)
         if serializers.is_valid():
             user = serializers.save()
             return Response({
-                "detail" : "Registration Successful! Check your email for OTP verification."
-            },status=status.HTTP_201_CREATED)
+                "detail": "Registration Successful! Check your email for OTP verification."
+            }, status=status.HTTP_201_CREATED)
         return Response(serializers.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-
 
 
 """ ----------------verify OTP API view------------------- """
+
+
 class VerifyOTPApiView(APIView):
     def post(self, request, *args, **kwargs):
         email = request.data.get('email')
@@ -247,35 +257,39 @@ class VerifyOTPApiView(APIView):
         return Response({'Error': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-
 """ ----------------Resend OTP API view------------------- """
 
+
 class ResendOTPApiView(APIView):
-    def post(self,request,*args, **kwargs):
+    def post(self, request, *args, **kwargs):
         email = request.data.get('email')
-        user = get_object_or_404(User,email=email)
+        user = get_object_or_404(User, email=email)
         otp_code = generate_otp()
         user.profile.otp = otp_code
         user.profile.save()
 
-        html_content = render_to_string('send_code.html',{'otp':otp_code,'user':user})
+        html_content = render_to_string(
+            'send_code.html', {'otp': otp_code, 'user': user})
 
         try:
             msg = EmailMessage(
                 subject='Your New OTP Code',
                 body=html_content,
                 from_email=settings.EMAIL_HOST_USER,
-                to = [email],
+                to=[email],
             )
             msg.content_subtype = "html"
             msg.send()
 
-            return Response({'Message':"OTP has been Resend To Your email"},status=status.HTTP_200_OK)
+            return Response({'Message': "OTP has been Resend To Your email"}, status=status.HTTP_200_OK)
 
         except Exception as e:
-            return Response({"Error":f'Failed to send email: {str(e)}'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"Error": f'Failed to send email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 """ ----------------Forgot Password view------------------- """
+
+
 class ForgotPasswordAPIView(APIView):
     serializer_class = ResetPasswordSerializer
 
@@ -297,33 +311,39 @@ class ForgotPasswordAPIView(APIView):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
 """ -------------------Change Password view----------------------- """
+
+
 class ChangePasswordViewSet(viewsets.GenericViewSet):
     serializer_class = ChangePasswordSerializer
-    permission_classes = [IsAuthenticated] 
+    permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-        if not request.user.is_authenticated:  
+        if not request.user.is_authenticated:
             return Response({"error": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
 
         user = request.user
-        serializer = self.get_serializer(data=request.data, context={"request": request})
+        serializer = self.get_serializer(
+            data=request.data, context={"request": request})
 
         if serializer.is_valid():
             if not user.check_password(serializer.validated_data["old_password"]):
                 return Response({"old_password": ["Wrong password."]}, status=status.HTTP_400_BAD_REQUEST)
-            
+
             user.set_password(serializer.validated_data["new_password"])
             user.save()
             return Response({"message": "Password changed successfully!"}, status=status.HTTP_204_NO_CONTENT)
-        
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
+
 """ ----------------Login view------------------- """
+
 
 class LoginAPIView(APIView):
     serializer_class = LoginSerializer
-    permission_classes = [AllowAny] 
+    permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
@@ -345,7 +365,7 @@ class LoginAPIView(APIView):
 
                 # Generate JWT tokens
                 refresh = RefreshToken.for_user(user)
-                
+
                 return Response({
                     'access': str(refresh.access_token),
                     'refresh': str(refresh),
@@ -354,15 +374,17 @@ class LoginAPIView(APIView):
                         'email': user.email,
                         'Fullname': user.Fullname,
                         'is_staff': user.is_staff,
+                        "role": user.role
                     }
                 }, status=status.HTTP_200_OK)
 
             return Response(
-                {'error': 'Email and password do not match'}, 
+                {'error': 'Email and password do not match'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class BaseResponseMixin:
     def success_response(self, message, data=None, status_code=status.HTTP_200_OK):
@@ -381,7 +403,10 @@ class BaseResponseMixin:
         }
         return Response(response, status=status_code)
 
+
 """=========================deleted account/views.py code========================="""
+
+
 class DeleteAccountView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -392,7 +417,11 @@ class DeleteAccountView(APIView):
             {"message": "Account deleted successfully."},
             status=status.HTTP_204_NO_CONTENT
         )
+
+
 """=============================Team view set==========================================="""
+
+
 class teamviewset(viewsets.ModelViewSet):
     queryset = Team.objects.all()
     serializer_class = teamserializers
@@ -402,137 +431,163 @@ class teamviewset(viewsets.ModelViewSet):
         """Filter teams based on user role"""
         user = self.request.user
         if user.role == 'coach':
-            # Coach can see their own teams
             return Team.objects.filter(coach=user)
-        else:
-            # Members can see teams they belong to
-            return Team.objects.filter(members=user)
+        return Team.objects.filter(members=user)
 
-    def perform_create(self, serializer):
-        serializer.save(coach=self.request.user)
-    
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
 
+    # ==========================
+    # 🔑 Invitation Token
+    # ==========================
     @action(detail=True, methods=['get'])
     def invitation_token(self, request, pk=None):
-        """Get active invitation token for a team"""
         team = self.get_object()
-        
-        # Only coach can view invitation token
+
         if request.user != team.coach:
             return Response(
                 {"detail": "Only the team coach can view invitation tokens."},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
-        token = team.get_active_token()
-        if token:
-            serializer = InvitationTokenSerializer(token)
-            return Response(serializer.data)
-        else:
-            return Response(
-                {"detail": "No active invitation token found."},
-                status=status.HTTP_404_NOT_FOUND
-            )
-    
-    @action(detail=True, methods=['post'])
-    def update_token_expiry(self, request, pk=None):
-        """Update invitation token expiry date"""
-        team = self.get_object()
-        
-        # Only coach can update token expiry
-        if request.user != team.coach:
-            return Response(
-                {"detail": "Only the team coach can update token expiry."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        expiry_days = request.data.get('expiry_days')
-        expiry_date = request.data.get('expiry_date')
-        
-        if not expiry_days and not expiry_date:
-            return Response(
-                {"detail": "Please provide either 'expiry_days' or 'expiry_date'."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
+
         token = team.get_active_token()
         if not token:
             return Response(
                 {"detail": "No active invitation token found."},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
+
+        serializer = InvitationTokenSerializer(token)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def update_token_expiry(self, request, pk=None):
+        team = self.get_object()
+
+        if request.user != team.coach:
+            return Response(
+                {"detail": "Only the team coach can update token expiry."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        expiry_days = request.data.get('expiry_days')
+        expiry_date = request.data.get('expiry_date')
+
+        if not expiry_days and not expiry_date:
+            return Response(
+                {"detail": "Provide expiry_days or expiry_date."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        token = team.get_active_token()
+        if not token:
+            return Response(
+                {"detail": "No active invitation token found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
         if expiry_days:
-            try:
-                days = int(expiry_days)
-                token.expires_at = timezone.now() + timedelta(days=days)
-            except ValueError:
-                return Response(
-                    {"detail": "Invalid expiry_days value."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-        elif expiry_date:
+            token.expires_at = timezone.now() + timedelta(days=int(expiry_days))
+        else:
             from django.utils.dateparse import parse_datetime
             parsed_date = parse_datetime(expiry_date)
-            if not parsed_date:
+            if not parsed_date or parsed_date <= timezone.now():
                 return Response(
-                    {"detail": "Invalid date format. Use ISO format (YYYY-MM-DDTHH:MM:SS)."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            if parsed_date <= timezone.now():
-                return Response(
-                    {"detail": "Expiry date must be in the future."},
+                    {"detail": "Invalid expiry date."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             token.expires_at = parsed_date
-        
+
         token.save()
-        serializer = InvitationTokenSerializer(token)
-        return Response(serializer.data)
-    
+        return Response(InvitationTokenSerializer(token).data)
+
+    # ==========================
+    # 🚪 Join With Token
+    # ==========================
     @action(detail=False, methods=['post'])
     def join_with_token(self, request):
-        """Join a team using invitation token"""
         serializer = JoinTeamSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
-        try:
-            team_member = serializer.save(user=request.user)
-            return Response(
-                {
-                    "detail": "Join request sent successfully. Waiting for coach approval.",
-                    "team_member": TeamMemberSerializer(team_member).data
-                },
-                status=status.HTTP_201_CREATED
-            )
-        except Exception as e:
-            return Response(
-                {"detail": str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-    
+
+        # 1️⃣ Create pending member
+        team_member = serializer.save(user=request.user)
+        coach = team_member.team.coach
+
+        # 2️⃣ DB Notification
+        Notification.objects.create(
+            recipient=coach,
+            sender=request.user,
+            team=team_member.team,
+            notification_type='join_request',
+            message=f"{request.user.email} wants to join your team {team_member.team.name}."
+            f"{team_member.team.name} as {team_member.get_role_display()}."
+        )
+
+        # 3️⃣ 🔔 Real-time Notification (WebSocket)
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"user_{coach.id}",
+            {
+                "type": "send_notification",
+                "data": {
+                    "type": "join_request",
+                    "team": team_member.team.name,
+                    "user": request.user.email,
+                    "role": team_member.role,
+                    "role_display": team_member.get_role_display(),
+                    "message": (
+                        f"{request.user.email} wants to join as "
+                        f"{team_member.get_role_display()}"
+                    )
+                }
+            }
+        )
+
+        # 4️⃣ 📧 Email Notification
+        send_mail(
+            subject="New Team Join Request",
+            message=(
+                f"{request.user.email} wants to join your team "
+                f"'{team_member.team.name}' as "
+                f"{team_member.get_role_display()}.\n\n"
+                "Please login to approve or reject the request."
+            ),
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[coach.email],
+            fail_silently=True,
+        )
+
+        return Response(
+            {"detail": "Join request sent. Waiting for coach approval."},
+            status=status.HTTP_201_CREATED
+        )
+
+    # ==========================
+    # ⏳ Pending Members
+    # ==========================
     @action(detail=True, methods=['get'])
     def pending_members(self, request, pk=None):
-        """Get all pending members for a team (for coach)"""
         team = self.get_object()
-        
-        # Only coach can view pending members
+
         if request.user != team.coach:
             return Response(
                 {"detail": "Only the team coach can view pending members."},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
-        pending = TeamMember.objects.filter(team=team, is_role_approved=False)
+
+        pending = TeamMember.objects.filter(
+            team=team,
+            is_role_approved=False
+        )
         serializer = TeamMemberSerializer(pending, many=True)
         return Response(serializer.data)
 
 
 """================================Team Member View set=================================="""
+
+
 class TeamMemberViewSet(viewsets.ModelViewSet):
     queryset = TeamMember.objects.all()
     serializer_class = TeamMemberSerializer
@@ -541,10 +596,10 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filter based on query params and user permissions"""
         queryset = self.queryset
-        
+
         team_id = self.request.query_params.get('team_id')
         user = self.request.user
-        
+
         if team_id:
             queryset = queryset.filter(team_id=team_id)
             # Check if user is coach or member of this team
@@ -552,63 +607,70 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
             if team:
                 if user != team.coach and not queryset.filter(member=user).exists():
                     return TeamMember.objects.none()
-        
+
         # Show only approved members to non-coaches
         if user.role != 'coach':
             queryset = queryset.filter(is_role_approved=True)
-        
+
         return queryset
 
     @action(detail=True, methods=['post'])
-    def approve(self, request, pk=None):
-        """Approve a team member (coach only)"""
-        member = self.get_object()
-        
-        if request.user != member.team.coach:
+    def approve_member(self, request, pk=None):
+        membership_obj = self.get_object()
+        team = membership_obj.team
+
+        if request.user != team.coach:
             return Response(
-                {"detail": "Only the team coach can approve members."},
+                {"detail": "Only coach can approve members."},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
-        if member.is_role_approved:
-            return Response(
-                {"detail": "Member is already approved."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        member.is_role_approved = True
-        member.save()
-        
-        serializer = self.get_serializer(member)
-        return Response({
-            "detail": "Member approved successfully.",
-            "member": serializer.data
-        })
-    
-    @action(detail=True, methods=['post'])
-    def reject(self, request, pk=None):
-        """Reject a team member request (coach only)"""
-        member = self.get_object()
-        
-        if request.user != member.team.coach:
-            return Response(
-                {"detail": "Only the team coach can reject members."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        member.delete()
+
+        # Approve the membership object targeted by this detail route
+        membership = membership_obj
+        if membership.is_role_approved:
+            return Response({"detail": "Member is already approved."}, status=status.HTTP_400_BAD_REQUEST)
+
+        membership.is_role_approved = True
+        membership.save()
+
         return Response(
-            {"detail": "Member request rejected and removed."},
-            status=status.HTTP_204_NO_CONTENT
+            {"detail": "Member approved successfully."},
+            status=status.HTTP_200_OK
         )
+
+    @action(detail=True, methods=['post'])
+    def reject_member(self, request, pk=None):
+        membership_obj = self.get_object()
+        team = membership_obj.team
+
+        if request.user != team.coach:
+            return Response(
+                {"detail": "Only coach can reject members."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+    
+        # Reject/delete the membership targeted by this detail route
+        membership = membership_obj
+        if membership.is_role_approved:
+            return Response({"detail": "Cannot reject an already approved member."}, status=status.HTTP_400_BAD_REQUEST)
+
+        membership.delete()
+    
+        return Response(
+            {"detail": "Join request rejected."},
+            status=status.HTTP_200_OK
+        )
+    
 
 
 """================================Invitation Token ViewSet=================================="""
+
+
 class InvitationTokenViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = InvitationToken.objects.all()
     serializer_class = InvitationTokenSerializer
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
         """Coach can only see their own tokens"""
         user = self.request.user
@@ -619,30 +681,48 @@ class InvitationTokenViewSet(viewsets.ReadOnlyModelViewSet):
 
 """------------------------Profile Detail View-----------------------------------"""
 
+
 class ProfileDetailsView(generics.RetrieveAPIView):
     serializer_class = ProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
-        profile,created = Profile.objects.get_or_create(user = self.request.user)
+        profile, created = Profile.objects.get_or_create(
+            user=self.request.user)
         return profile
 
 
+"""------------------------Notification view--------------------------- """
+
+
+class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(
+            recipient=self.request.user
+        ).order_by('-created_at')
+
+
 """ ------------------------Profile UpdateView view--------------------------- """
+
 
 class ProfileUpdateView(generics.RetrieveAPIView):
     serializer_class = ProfileUpdateSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
-        profile,created = Profile.objects.get_or_create(user = self.request.user)
+        profile, created = Profile.objects.get_or_create(
+            user=self.request.user)
         return profile
 
-    def update(self,request,*args, **kwargs):
-        partial = kwargs.pop('partial',False)
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        serializer = self.get_serializer(instance,data=request.data,partial=partial)
-        serializer.is_valid(raise_exception = True)
+        serializer = self.get_serializer(
+            instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         profile_serializer = ProfileSerializer(instance)
         return Response(profile_serializer.data)

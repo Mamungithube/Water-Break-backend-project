@@ -54,12 +54,10 @@ class TeamChatConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         try:
-            # ডাটা কি JSON নাকি সাধারণ টেক্সট তা চেক করা
             try:
                 data = json.loads(text_data)
                 message = data.get("message")
             except json.JSONDecodeError:
-                # যদি JSON না হয়, তবে পুরো টেক্সটটাকেই মেসেজ হিসেবে ধরা হবে
                 message = text_data
 
             if not message:
@@ -124,3 +122,30 @@ class TeamChatConsumer(AsyncWebsocketConsumer):
             print(f"✅ Success: Message saved for Team {self.team_id}")
         except Exception as e:
             print(f"❌ DB Save Error: {str(e)}")
+
+
+
+
+from channels.generic.websocket import AsyncJsonWebsocketConsumer
+
+class NotificationConsumer(AsyncJsonWebsocketConsumer):
+    async def connect(self):
+        user = self.scope["user"]
+        if user.is_anonymous:
+            await self.close()
+        else:
+            self.group_name = f"user_{user.id}"
+            await self.channel_layer.group_add(
+                self.group_name,
+                self.channel_name
+            )
+            await self.accept()
+
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard(
+            self.group_name,
+            self.channel_name
+        )
+
+    async def send_notification(self, event):
+        await self.send_json(event["data"])

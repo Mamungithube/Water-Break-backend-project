@@ -213,3 +213,41 @@ class InvitationToken(models.Model):
 
     def __str__(self):
         return f"{self.token} - {self.team.name} (Expires: {self.expires_at.strftime('%Y-%m-%d %H:%M')})"
+
+
+
+
+
+
+
+"""=========================Notification Model========================="""
+
+
+class Notification(models.Model):
+    NOTIFICATION_TYPES = (
+        ('join_request', 'Join Request'),
+    )
+
+    recipient = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='notifications'
+    )
+    sender = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='sent_notifications'
+    )
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
+    notification_type = models.CharField(max_length=30)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Notification to {self.recipient.email}"

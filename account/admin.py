@@ -235,3 +235,18 @@ class InvitationTokenAdmin(ModelAdmin):
             token.expires_at = timezone.now() + timedelta(days=30)
             token.save()
         self.message_user(request, f'{queryset.count()} tokens extended by 30 days.')
+
+
+
+"""=========================Notification Admin========================="""
+from .models import Notification
+@admin.register(Notification)
+class NotificationAdmin(ModelAdmin):
+    list_display = ('recipient_email', 'message', 'is_read', 'created_at')
+    list_filter = ('is_read', 'created_at')
+    search_fields = ('recipient__email', 'message')
+    readonly_fields = ('created_at',)
+    
+    def recipient_email(self, obj):
+        return obj.recipient.email
+    recipient_email.short_description = 'Recipient Email'

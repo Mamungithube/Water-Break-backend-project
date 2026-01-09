@@ -4,9 +4,8 @@ from .utils import generate_otp
 from django.core.mail import send_mail, EmailMessage
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import serializers
-from .models import User, Profile, TeamMember,Team
-from django.contrib.auth import get_user_model
-from django.contrib.auth import password_validation
+from .models import User, Profile, TeamMember,Team, Notification
+from django.contrib.auth import get_user_model,password_validation
 from django.template.loader import render_to_string
 from django.conf import settings
 from django.forms import fields
@@ -138,6 +137,7 @@ class UserLoginSerializer(serializers.ModelSerializer):
 
 
 """=============================Team serializers========================="""
+
 from rest_framework import serializers
 from .models import Team, TeamMember, InvitationToken
 from django.contrib.auth import get_user_model
@@ -181,11 +181,10 @@ class teamserializers(serializers.ModelSerializer):
     def get_active_invitation_token(self, obj):
         token = obj.get_active_token()
         if token:
-            return {
-                'token': token.token,
-                'expires_at': token.expires_at,
-                'is_valid': token.is_valid()
-            }
+            return InvitationTokenSerializer(
+                token,
+                context = self.context,
+            ).data
         return None
     
     def get_members_count(self, obj):
@@ -280,6 +279,13 @@ class JoinTeamSerializer(serializers.Serializer):
         )
         
         return team_member
+
+"""=============================Notification Serializer========================="""
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = '__all__'
 
 
 """========================================profile serializers=============================="""
