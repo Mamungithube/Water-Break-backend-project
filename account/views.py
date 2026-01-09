@@ -594,47 +594,52 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Filter based on query params and user permissions"""
-        queryset = self.queryset
-
-        team_id = self.request.query_params.get('team_id')
         user = self.request.user
+        team_id = self.request.query_params.get('team_id')
+        
+        # ১. কোচ যদি রিকোয়েস্ট করে, তবে সে তার টিমের পেন্ডিং ও অ্যাপ্রুভড সব মেম্বার দেখবে
+        if user.role == 'coach':
+            if team_id:
+                # নির্দিষ্ট টিমের জন্য চেক: ওই টিমের কোচ এই ইউজার কি না
+                return TeamMember.objects.filter(team_id=team_id, team__coach=user)
+            # কোচের সব টিমের মেম্বার
+            return TeamMember.objects.filter(team__coach=user)
 
+        # ২. সাধারণ ইউজারদের জন্য ফিল্টার (শুধু অ্যাপ্রুভড মেম্বার দেখবে)
+        queryset = TeamMember.objects.filter(is_role_approved=True)
         if team_id:
             queryset = queryset.filter(team_id=team_id)
-            # Check if user is coach or member of this team
-            team = Team.objects.filter(id=team_id).first()
-            if team:
-                if user != team.coach and not queryset.filter(member=user).exists():
-                    return TeamMember.objects.none()
-
-        # Show only approved members to non-coaches
-        if user.role != 'coach':
-            queryset = queryset.filter(is_role_approved=True)
-
         return queryset
 
     @action(detail=True, methods=['post'])
     def approve_member(self, request, pk=None):
-        membership_obj = self.get_object()
-        team = membership_obj.team
+        # ৩. এই pk হলো TeamMember টেবিলের ID (User ID নয়)
+        # এটি প্রতিটি টিমের জন্য ইউনিক। তাই ইউজার অন্য টিমে True থাকলেও এখানে False থাকবে।
+        try:
+            membership = TeamMember.objects.get(pk=pk)
+        except TeamMember.DoesNotExist:
+            return Response({"detail": "Membership request not found."}, status=404)
 
-        if request.user != team.coach:
+        # ৪. টিম অনুসারে চেক: রিকোয়েস্টকারী কি এই নির্দিষ্ট মেম্বারশিপের টিমের কোচ?
+        if request.user != membership.team.coach:
             return Response(
-                {"detail": "Only coach can approve members."},
+                {"detail": f"You are not the coach of team '{membership.team.name}'."}, 
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # Approve the membership object targeted by this detail route
-        membership = membership_obj
+        # ৫. স্ট্যাটাস চেক: এই নির্দিষ্ট টিমে সে কি আগে থেকেই True?
         if membership.is_role_approved:
-            return Response({"detail": "Member is already approved."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": f"Member already approved in team '{membership.team.name}'."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
+        # ৬. শুধুমাত্র এই টিমের রেকর্ডে True করে দেওয়া
         membership.is_role_approved = True
         membership.save()
 
         return Response(
-            {"detail": "Member approved successfully."},
+            {"detail": f"Approved for team '{membership.team.name}' successfully."}, 
             status=status.HTTP_200_OK
         )
 

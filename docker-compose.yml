@@ -30,13 +30,15 @@ services:
     build: .
     container_name: django_backend
     # command: daphne -b 0.0.0.0 -p 8000 water_break.asgi:application
-    command: daphne -b 0.0.0.0 -p 8001 water_break.asgi:application
+    command: python -m daphne -b 0.0.0.0 -p 8001 water_break.asgi:application
     volumes:
       - .:/app
     ports:
       - "8001:8001"
     env_file:
-      - .env  
+      - .env 
+    environment:
+      - PYTHONUNBUFFERED=1 
     depends_on:
       db:
         condition: service_healthy

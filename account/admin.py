@@ -117,6 +117,7 @@ class TeamAdmin(ModelAdmin):
 @admin.register(TeamMember)
 class TeamMemberAdmin(ModelAdmin):
     list_display = (
+        'id',
         'get_team_name',
         'get_member_email',
         'role',
@@ -124,7 +125,7 @@ class TeamMemberAdmin(ModelAdmin):
         'joined_at',
     )
 
-    list_editable = ('is_role_approved',)
+    # list_editable = ('is_role_approved',)
     list_filter = ('role', 'is_role_approved', 'joined_at')
     search_fields = (
         'team__name',
