@@ -202,17 +202,7 @@ class GoogleCallbackView(APIView):
             frontend_url = f"http://localhost:3000/auth/callback?access={str(refresh.access_token)}&refresh={str(refresh)}"
 
             return redirect(frontend_url)
-
-            # return Response({
-            #     "refresh": str(refresh),
-            #     "access": str(refresh.access_token),
-            #     "user": {
-            #         "email": user.email,
-            #         "name": user.Fullname,
-            #         "id": user.id
-            #     }
-            # }, status=status.HTTP_200_OK)
-
+        
         except Exception as e:
             print(f"Google OAuth error: {str(e)}")
             return Response(
@@ -223,38 +213,200 @@ class GoogleCallbackView(APIView):
 
 """ ----------------Registration view------------------- """
 
-
 class RegisterApiView(APIView):
     serializer_class = RegistrationSerializer
+    permission_classes = [AllowAny]
 
     def post(self, request):
-        serializers = self.serializer_class(data=request.data)
-        if serializers.is_valid():
-            user = serializers.save()
-            return Response({
-                "detail": "Registration Successful! Check your email for OTP verification."
-            }, status=status.HTTP_201_CREATED)
-        return Response(serializers.errors, status=status.HTTP_400_BAD_REQUEST)
+        # Validate input
+        if not request.data:
+            return Response(
+                {"success": False, "message": "Request body cannot be empty."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = self.serializer_class(data=request.data)
+        
+        # Check serializer validity
+        if not serializer.is_valid():
+            return Response(
+                {
+                    "success": False,
+                    "message": "Validation failed. Please check your input.",
+                    "errors": serializer.errors,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Attempt to save user and send OTP
+        try:
+            user = serializer.save()
+            return Response(
+                {
+                    "success": True,
+                    "message": "Registration successful! An OTP verification code has been sent to your email. Please check your inbox.",
+                    "data": {
+                        "user_id": user.id,
+                        "email": user.email,
+                        "message": "Please verify your email with the OTP to activate your account.",
+                    },
+                },
+                status=status.HTTP_201_CREATED,
+            )
+        except Exception as e:
+            # Handle duplicate email or other model errors
+            error_message = str(e)
+            if "email" in error_message.lower() or "unique" in error_message.lower():
+                return Response(
+                    {
+                        "success": False,
+                        "message": "An account with this email already exists. Please log in or use a different email.",
+                        "errors": {"email": ["Email already registered."]},
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            
+            # Generic server error for unexpected exceptions
+            return Response(
+                {
+                    "success": False,
+                    "message": "An error occurred during registration. Please try again later.",
+                    "errors": {"detail": [str(e)]},
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 """ ----------------verify OTP API view------------------- """
 
-
 class VerifyOTPApiView(APIView):
+    """OTP verification endpoint.
+    
+    Expects `email` and `otp` in the request body.
+    Activates user account after successful OTP verification.
+    """
+    permission_classes = [AllowAny]
+
     def post(self, request, *args, **kwargs):
-        email = request.data.get('email')
-        otp = request.data.get('otp')
+        # Validate request body is not empty
+        if not request.data:
+            return Response(
+                {"success": False, "message": "Request body cannot be empty."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        user = get_object_or_404(User, email=email)
-        profile = user.profile
+        # Extract and validate email
+        email = request.data.get('email', '').strip()
+        if not email:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Email is required.",
+                    "errors": {"email": ["Email field cannot be empty."]},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        if profile.otp == otp:
+        # Extract and validate OTP
+        otp = request.data.get('otp', '').strip()
+        if not otp:
+            return Response(
+                {
+                    "success": False,
+                    "message": "OTP is required.",
+                    "errors": {"otp": ["OTP field cannot be empty."]},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check if user exists
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response(
+                {
+                    "success": False,
+                    "message": "No account found with this email address.",
+                    "errors": {"email": ["User not registered."]},
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Check if user is already active
+        if user.is_active:
+            return Response(
+                {
+                    "success": False,
+                    "message": "This account is already activated.",
+                    "errors": {"detail": ["Account already verified."]},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check if profile exists
+        try:
+            profile = user.profile
+        except Profile.DoesNotExist:
+            return Response(
+                {
+                    "success": False,
+                    "message": "User profile not found. Please contact support.",
+                    "errors": {"detail": ["Profile does not exist."]},
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        # Check if OTP exists in profile
+        if not profile.otp:
+            return Response(
+                {
+                    "success": False,
+                    "message": "No OTP found for this account. Please request a new OTP.",
+                    "errors": {"otp": ["OTP has expired or not set."]},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Verify OTP (case-insensitive for safety)
+        if profile.otp.strip().upper() != otp.upper():
+            return Response(
+                {
+                    "success": False,
+                    "message": "The OTP you entered is incorrect.",
+                    "errors": {"otp": ["Invalid OTP. Please try again."]},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # OTP is valid — activate the user account
+        try:
             user.is_active = True
             user.save(update_fields=['is_active'])
+            
             profile.otp = None
             profile.save(update_fields=['otp'])
-            return Response({'Message': 'Account Activate Successfully'}, status=status.HTTP_200_OK)
-        return Response({'Error': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "Account activated successfully. You can now log in.",
+                    "data": {
+                        "user_id": user.id,
+                        "email": user.email,
+                        "is_active": user.is_active,
+                    },
+                },
+                status=status.HTTP_200_OK,
+            )
+        except Exception as e:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Failed to activate account. Please try again later.",
+                    "errors": {"detail": [str(e)]},
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 """ ----------------Resend OTP API view------------------- """
@@ -281,14 +433,13 @@ class ResendOTPApiView(APIView):
             msg.content_subtype = "html"
             msg.send()
 
-            return Response({'Message': "OTP has been Resend To Your email"}, status=status.HTTP_200_OK)
+            return Response({'Message': "OTP has been Resend To Your email. please check your email inbox"}, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"Error": f'Failed to send email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 """ ----------------Forgot Password view------------------- """
-
 
 class ForgotPasswordAPIView(APIView):
     serializer_class = ResetPasswordSerializer
@@ -314,32 +465,66 @@ class ForgotPasswordAPIView(APIView):
 
 """ -------------------Change Password view----------------------- """
 
-
 class ChangePasswordViewSet(viewsets.GenericViewSet):
     serializer_class = ChangePasswordSerializer
     permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return Response({"error": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+        if not request.user or not request.user.is_authenticated:
+            return Response(
+                {"success": False, "message": "Authentication required."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        serializer = self.get_serializer(data=request.data, context={"request": request})
+
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception as exc:
+            return Response(
+                {"success": False, "message": "Invalid input.", "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         user = request.user
-        serializer = self.get_serializer(
-            data=request.data, context={"request": request})
+        old_password = serializer.validated_data.get("old_password")
+        new_password = serializer.validated_data.get("new_password")
 
-        if serializer.is_valid():
-            if not user.check_password(serializer.validated_data["old_password"]):
-                return Response({"old_password": ["Wrong password."]}, status=status.HTTP_400_BAD_REQUEST)
+        if not user.check_password(old_password):
+            return Response(
+                {"success": False, "message": "The provided current password is incorrect.", "errors": {"old_password":"Incorrect password.please try again."}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-            user.set_password(serializer.validated_data["new_password"])
+        # Validate the new password against Django validators
+        try:
+            from django.contrib.auth import password_validation
+
+            password_validation.validate_password(new_password, user)
+        except Exception as exc:
+            # password_validation raises ValidationError with a list of messages
+            return Response(
+                {"success": False, "message": "New password did not meet requirements.", "errors": exc.messages if hasattr(exc, 'messages') else [str(exc)]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Everything OK — change the password
+        try:
+            user.set_password(new_password)
             user.save()
-            return Response({"message": "Password changed successfully!"}, status=status.HTTP_204_NO_CONTENT)
+        except Exception as exc:
+            return Response(
+                {"success": False, "message": "Failed to update password. Please try again later."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"success": True, "message": "Password changed successfully."},
+            status=status.HTTP_200_OK,
+        )
 
 
 """ ----------------Login view------------------- """
-
 
 class LoginAPIView(APIView):
     serializer_class = LoginSerializer
@@ -649,11 +834,8 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
             {"detail": "Join request rejected."},
             status=status.HTTP_200_OK
         )
-    
-
 
 """================================Invitation Token ViewSet=================================="""
-
 
 class InvitationTokenViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = InvitationToken.objects.all()
@@ -667,9 +849,7 @@ class InvitationTokenViewSet(viewsets.ReadOnlyModelViewSet):
             return InvitationToken.objects.filter(coach=user)
         return InvitationToken.objects.none()
 
-
 """------------------------Profile Detail View-----------------------------------"""
-
 
 class ProfileDetailsView(generics.RetrieveAPIView):
     serializer_class = ProfileSerializer
@@ -680,9 +860,7 @@ class ProfileDetailsView(generics.RetrieveAPIView):
             user=self.request.user)
         return profile
 
-
 """------------------------Notification view--------------------------- """
-
 
 class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = NotificationSerializer
@@ -695,7 +873,6 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 """ ------------------------Profile UpdateView view--------------------------- """
-
 
 class ProfileUpdateView(generics.UpdateAPIView):
     serializer_class = ProfileUpdateSerializer
