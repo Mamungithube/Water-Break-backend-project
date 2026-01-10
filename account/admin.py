@@ -40,7 +40,7 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
         }),
     )
     
-    list_display = ('email', 'Fullname', 'role', 'is_staff', 'is_active')
+    list_display = ('email', 'Fullname', 'role','id','is_staff', 'is_active')
     list_filter = ('is_staff', 'is_active', 'role')
     search_fields = ('email', 'Fullname')
     ordering = ('email',)
@@ -82,7 +82,7 @@ class SubscriptionAdmin(ModelAdmin):
 
 @admin.register(Team)
 class TeamAdmin(ModelAdmin): 
-    list_display = ('name', 'coach_email', 'get_members_count', 'get_active_token_display', 'created_at')
+    list_display = ('name','id','coach_email', 'get_members_count', 'get_active_token_display', 'created_at')
     search_fields = ('name', 'coach__email')
     autocomplete_fields = ('coach',)
     readonly_fields = ('created_at', 'updated_at')
@@ -117,11 +117,11 @@ class TeamAdmin(ModelAdmin):
 @admin.register(TeamMember)
 class TeamMemberAdmin(ModelAdmin):
     list_display = (
+        'is_role_approved',
         'id',
         'get_team_name',
         'get_member_email',
         'role',
-        'is_role_approved',
         'joined_at',
     )
 

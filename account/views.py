@@ -404,7 +404,7 @@ class BaseResponseMixin:
         return Response(response, status=status_code)
 
 
-"""=========================deleted account/views.py code========================="""
+"""========================= deleted account/views.py code========================="""
 
 
 class DeleteAccountView(APIView):
@@ -439,9 +439,7 @@ class teamviewset(viewsets.ModelViewSet):
         context['request'] = self.request
         return context
 
-    # ==========================
-    # 🔑 Invitation Token
-    # ==========================
+    # ========================== 🔑 Invitation Token ==========================
     @action(detail=True, methods=['get'])
     def invitation_token(self, request, pk=None):
         team = self.get_object()
@@ -503,19 +501,15 @@ class teamviewset(viewsets.ModelViewSet):
         token.save()
         return Response(InvitationTokenSerializer(token).data)
 
-    # ==========================
-    # 🚪 Join With Token
-    # ==========================
+    # ==========================🚪 Join With Token==========================
     @action(detail=False, methods=['post'])
     def join_with_token(self, request):
         serializer = JoinTeamSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # 1️⃣ Create pending member
         team_member = serializer.save(user=request.user)
         coach = team_member.team.coach
 
-        # 2️⃣ DB Notification
         Notification.objects.create(
             recipient=coach,
             sender=request.user,
@@ -525,7 +519,7 @@ class teamviewset(viewsets.ModelViewSet):
             f"{team_member.team.name} as {team_member.get_role_display()}."
         )
 
-        # 3️⃣ 🔔 Real-time Notification (WebSocket)
+
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             f"user_{coach.id}",
@@ -545,7 +539,7 @@ class teamviewset(viewsets.ModelViewSet):
             }
         )
 
-        # 4️⃣ 📧 Email Notification
+
         send_mail(
             subject="New Team Join Request",
             message=(
@@ -564,9 +558,7 @@ class teamviewset(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED
         )
 
-    # ==========================
-    # ⏳ Pending Members
-    # ==========================
+    # ========================== ⏳ Pending Members   =========================="""
     @action(detail=True, methods=['get'])
     def pending_members(self, request, pk=None):
         team = self.get_object()
@@ -596,16 +588,13 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         team_id = self.request.query_params.get('team_id')
-        
-        # ১. কোচ যদি রিকোয়েস্ট করে, তবে সে তার টিমের পেন্ডিং ও অ্যাপ্রুভড সব মেম্বার দেখবে
+
         if user.role == 'coach':
             if team_id:
-                # নির্দিষ্ট টিমের জন্য চেক: ওই টিমের কোচ এই ইউজার কি না
                 return TeamMember.objects.filter(team_id=team_id, team__coach=user)
-            # কোচের সব টিমের মেম্বার
+
             return TeamMember.objects.filter(team__coach=user)
 
-        # ২. সাধারণ ইউজারদের জন্য ফিল্টার (শুধু অ্যাপ্রুভড মেম্বার দেখবে)
         queryset = TeamMember.objects.filter(is_role_approved=True)
         if team_id:
             queryset = queryset.filter(team_id=team_id)
@@ -613,28 +602,23 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def approve_member(self, request, pk=None):
-        # ৩. এই pk হলো TeamMember টেবিলের ID (User ID নয়)
-        # এটি প্রতিটি টিমের জন্য ইউনিক। তাই ইউজার অন্য টিমে True থাকলেও এখানে False থাকবে।
         try:
             membership = TeamMember.objects.get(pk=pk)
         except TeamMember.DoesNotExist:
             return Response({"detail": "Membership request not found."}, status=404)
 
-        # ৪. টিম অনুসারে চেক: রিকোয়েস্টকারী কি এই নির্দিষ্ট মেম্বারশিপের টিমের কোচ?
         if request.user != membership.team.coach:
             return Response(
                 {"detail": f"You are not the coach of team '{membership.team.name}'."}, 
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # ৫. স্ট্যাটাস চেক: এই নির্দিষ্ট টিমে সে কি আগে থেকেই True?
         if membership.is_role_approved:
             return Response(
                 {"detail": f"Member already approved in team '{membership.team.name}'."}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # ৬. শুধুমাত্র এই টিমের রেকর্ডে True করে দেওয়া
         membership.is_role_approved = True
         membership.save()
 
@@ -713,21 +697,22 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
 """ ------------------------Profile UpdateView view--------------------------- """
 
 
-class ProfileUpdateView(generics.RetrieveAPIView):
+class ProfileUpdateView(generics.UpdateAPIView):
     serializer_class = ProfileUpdateSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
-        profile, created = Profile.objects.get_or_create(
-            user=self.request.user)
-        return profile
+        # Get or create profile for the current user
+        profile, created = Profile.objects.get_or_create(user=self.request.user)
+        return profile  
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        serializer = self.get_serializer(
-            instance, data=request.data, partial=partial)
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
-        profile_serializer = ProfileSerializer(instance)
+
+        # Return full profile data after update
+        profile_serializer = ProfileSerializer(instance, context=self.get_serializer_context())
         return Response(profile_serializer.data)

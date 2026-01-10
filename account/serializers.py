@@ -311,21 +311,20 @@ class ProfileSerializer(serializers.ModelSerializer):
 """==============================================profile update serializers========================="""
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):
-    # expose frontend-friendly `fullname` but map to `user.Fullname` on save
-    fullname = serializers.CharField(source='user.Fullname', required=False, allow_blank=True)
+    fullname = serializers.CharField(source='user.Fullname', required=False)
 
     class Meta:
         model = Profile
         fields = ['fullname', 'profile_picture']
 
     def update(self, instance, validated_data):
-        # handle nested user data (source='user.Fullname')
+        # Update User Fullname
         user_data = validated_data.pop('user', {})
         if 'Fullname' in user_data:
-            setattr(instance.user, 'Fullname', user_data['Fullname'])
+            instance.user.Fullname = user_data['Fullname']
             instance.user.save()
-
-        # update remaining profile fields
+        
+        # Update Profile fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
