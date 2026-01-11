@@ -44,7 +44,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='drill',
             name='assign_team',
-            field=models.ManyToManyField(to='account.team'),
+            field=models.ManyToManyField(to='teamapp.team'),
         ),
         migrations.AddField(
             model_name='plan',

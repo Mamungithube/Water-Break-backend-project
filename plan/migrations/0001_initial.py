@@ -24,7 +24,7 @@ class Migration(migrations.Migration):
                 ('description', models.TextField(max_length=250)),
                 ('date_created', models.DateTimeField(auto_now_add=True)),
                 ('date_modified', models.DateTimeField(auto_now=True)),
-                ('assign_team', models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='account.team')),
+                ('assign_team', models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='teamapp.team')),
                 ('create_By', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
             ],
         ),

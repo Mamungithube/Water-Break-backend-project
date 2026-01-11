@@ -3,7 +3,7 @@ from django.db import models
 # Create your models here.
 class Drill(models.Model):
     create_By = models.ForeignKey('account.User', on_delete=models.CASCADE)
-    assign_team = models.ManyToManyField("account.Team")
+    assign_team = models.ManyToManyField("teamapp.Team")
     name = models.CharField(max_length=50)
     category = models.TextField(max_length=100)
     description = models.TextField(max_length=250)

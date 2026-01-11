@@ -1,7 +1,7 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from account.models import Team, TeamMember
+from teamapp.models import Team, TeamMember
 from .models import TeamChatMessage
 from django.contrib.auth.models import AnonymousUser
 

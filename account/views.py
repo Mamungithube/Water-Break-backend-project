@@ -2,9 +2,6 @@ from google_auth_oauthlib.flow import Flow
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from django.shortcuts import redirect
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
-from django.core.mail import send_mail
 from django.conf import settings
 from django.contrib.auth import get_user_model, login
 from django.conf import settings
@@ -14,15 +11,11 @@ from .serializers import (
     ResetPasswordSerializer,
     ChangePasswordSerializer,
     LoginSerializer,
-    teamserializers,
-    TeamMemberSerializer,
     ProfileSerializer,
     ProfileUpdateSerializer,
-    InvitationTokenSerializer,
-    JoinTeamSerializer,
     NotificationSerializer
 )
-from .models import InvitationToken, Profile, Team, TeamMember, Notification
+from .models import Profile, Notification
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -604,250 +597,7 @@ class DeleteAccountView(APIView):
         )
 
 
-"""=============================Team view set==========================================="""
 
-
-class teamviewset(viewsets.ModelViewSet):
-    queryset = Team.objects.all()
-    serializer_class = teamserializers
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        """Filter teams based on user role"""
-        user = self.request.user
-        if user.role == 'coach':
-            return Team.objects.filter(coach=user)
-        return Team.objects.filter(members=user)
-
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context['request'] = self.request
-        return context
-
-    # ========================== 🔑 Invitation Token ==========================
-    @action(detail=True, methods=['get'])
-    def invitation_token(self, request, pk=None):
-        team = self.get_object()
-
-        if request.user != team.coach:
-            return Response(
-                {"detail": "Only the team coach can view invitation tokens."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        token = team.get_active_token()
-        if not token:
-            return Response(
-                {"detail": "No active invitation token found."},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        serializer = InvitationTokenSerializer(token)
-        return Response(serializer.data)
-
-    @action(detail=True, methods=['post'])
-    def update_token_expiry(self, request, pk=None):
-        team = self.get_object()
-
-        if request.user != team.coach:
-            return Response(
-                {"detail": "Only the team coach can update token expiry."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        expiry_days = request.data.get('expiry_days')
-        expiry_date = request.data.get('expiry_date')
-
-        if not expiry_days and not expiry_date:
-            return Response(
-                {"detail": "Provide expiry_days or expiry_date."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        token = team.get_active_token()
-        if not token:
-            return Response(
-                {"detail": "No active invitation token found."},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        if expiry_days:
-            token.expires_at = timezone.now() + timedelta(days=int(expiry_days))
-        else:
-            from django.utils.dateparse import parse_datetime
-            parsed_date = parse_datetime(expiry_date)
-            if not parsed_date or parsed_date <= timezone.now():
-                return Response(
-                    {"detail": "Invalid expiry date."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            token.expires_at = parsed_date
-
-        token.save()
-        return Response(InvitationTokenSerializer(token).data)
-
-    # ==========================🚪 Join With Token==========================
-    @action(detail=False, methods=['post'])
-    def join_with_token(self, request):
-        serializer = JoinTeamSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        team_member = serializer.save(user=request.user)
-        coach = team_member.team.coach
-
-        Notification.objects.create(
-            recipient=coach,
-            sender=request.user,
-            team=team_member.team,
-            notification_type='join_request',
-            message=f"{request.user.email} wants to join your team {team_member.team.name}."
-            f"{team_member.team.name} as {team_member.get_role_display()}."
-        )
-
-
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            f"user_{coach.id}",
-            {
-                "type": "send_notification",
-                "data": {
-                    "type": "join_request",
-                    "team": team_member.team.name,
-                    "user": request.user.email,
-                    "role": team_member.role,
-                    "role_display": team_member.get_role_display(),
-                    "message": (
-                        f"{request.user.email} wants to join as "
-                        f"{team_member.get_role_display()}"
-                    )
-                }
-            }
-        )
-
-
-        send_mail(
-            subject="New Team Join Request",
-            message=(
-                f"{request.user.email} wants to join your team "
-                f"'{team_member.team.name}' as "
-                f"{team_member.get_role_display()}.\n\n"
-                "Please login to approve or reject the request."
-            ),
-            from_email=settings.EMAIL_HOST_USER,
-            recipient_list=[coach.email],
-            fail_silently=True,
-        )
-
-        return Response(
-            {"detail": "Join request sent. Waiting for coach approval."},
-            status=status.HTTP_201_CREATED
-        )
-
-    # ========================== ⏳ Pending Members   =========================="""
-    @action(detail=True, methods=['get'])
-    def pending_members(self, request, pk=None):
-        team = self.get_object()
-
-        if request.user != team.coach:
-            return Response(
-                {"detail": "Only the team coach can view pending members."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        pending = TeamMember.objects.filter(
-            team=team,
-            is_role_approved=False
-        )
-        serializer = TeamMemberSerializer(pending, many=True)
-        return Response(serializer.data)
-
-
-"""================================Team Member View set=================================="""
-
-
-class TeamMemberViewSet(viewsets.ModelViewSet):
-    queryset = TeamMember.objects.all()
-    serializer_class = TeamMemberSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-        team_id = self.request.query_params.get('team_id')
-
-        if user.role == 'coach':
-            if team_id:
-                return TeamMember.objects.filter(team_id=team_id, team__coach=user)
-
-            return TeamMember.objects.filter(team__coach=user)
-
-        queryset = TeamMember.objects.filter(is_role_approved=True)
-        if team_id:
-            queryset = queryset.filter(team_id=team_id)
-        return queryset
-
-    @action(detail=True, methods=['post'])
-    def approve_member(self, request, pk=None):
-        try:
-            membership = TeamMember.objects.get(pk=pk)
-        except TeamMember.DoesNotExist:
-            return Response({"detail": "Membership request not found."}, status=404)
-
-        if request.user != membership.team.coach:
-            return Response(
-                {"detail": f"You are not the coach of team '{membership.team.name}'."}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        if membership.is_role_approved:
-            return Response(
-                {"detail": f"Member already approved in team '{membership.team.name}'."}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        membership.is_role_approved = True
-        membership.save()
-
-        return Response(
-            {"detail": f"Approved for team '{membership.team.name}' successfully."}, 
-            status=status.HTTP_200_OK
-        )
-
-    @action(detail=True, methods=['post'])
-    def reject_member(self, request, pk=None):
-        membership_obj = self.get_object()
-        team = membership_obj.team
-
-        if request.user != team.coach:
-            return Response(
-                {"detail": "Only coach can reject members."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-    
-        # Reject/delete the membership targeted by this detail route
-        membership = membership_obj
-        if membership.is_role_approved:
-            return Response({"detail": "Cannot reject an already approved member."}, status=status.HTTP_400_BAD_REQUEST)
-
-        membership.delete()
-    
-        return Response(
-            {"detail": "Join request rejected."},
-            status=status.HTTP_200_OK
-        )
-
-"""================================Invitation Token ViewSet=================================="""
-
-class InvitationTokenViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = InvitationToken.objects.all()
-    serializer_class = InvitationTokenSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        """Coach can only see their own tokens"""
-        user = self.request.user
-        if user.role == 'coach':
-            return InvitationToken.objects.filter(coach=user)
-        return InvitationToken.objects.none()
 
 """------------------------Profile Detail View-----------------------------------"""
 
@@ -865,11 +615,143 @@ class ProfileDetailsView(generics.RetrieveAPIView):
 class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
-
+    
     def get_queryset(self):
-        return Notification.objects.filter(
-            recipient=self.request.user
-        ).order_by('-created_at')
+        """Filter notifications for the current user, ordered by most recent."""
+        try:
+            return Notification.objects.filter(
+                recipient=self.request.user
+            ).order_by('-created_at')
+        except Exception as e:
+            # Return empty queryset on error instead of crashing
+            return Notification.objects.none()
+
+    def list(self, request, *args, **kwargs):
+        """Retrieve all notifications for the authenticated user."""
+        try:
+            # Get pagination parameters
+            page = int(request.GET.get('page', 1))
+            page_size = int(request.GET.get('page_size', 10))
+            
+            # Validate pagination parameters
+            if page < 1:
+                return Response(
+                    {
+                        "success": False,
+                        "message": "Invalid page number.",
+                        "errors": {"page": ["Page must be greater than 0."]},
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            
+            if page_size < 1 or page_size > 100:
+                return Response(
+                    {
+                        "success": False,
+                        "message": "Invalid page size.",
+                        "errors": {"page_size": ["Page size must be between 1 and 100."]},
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            
+            # Get filter by notification type (optional)
+            notification_type = request.GET.get('notification_type', '').strip()
+            
+            # Get base queryset
+            queryset = self.get_queryset()
+            
+            # Apply type filter if provided
+            if notification_type:
+                queryset = queryset.filter(notification_type=notification_type)
+            
+            # Get unread only filter (optional)
+            unread_only = request.GET.get('unread_only', 'false').lower() == 'true'
+            if unread_only:
+                queryset = queryset.filter(is_read=False)
+            
+            # Calculate pagination
+            total_count = queryset.count()
+            start = (page - 1) * page_size
+            end = start + page_size
+            paginated_notifications = queryset[start:end]
+            
+            # Serialize
+            serializer = self.get_serializer(paginated_notifications, many=True)
+            
+            return Response(
+                {
+                    "success": True,
+                    "message": "Notifications retrieved successfully.",
+                    "data": {
+                        "total": total_count,
+                        "page": page,
+                        "page_size": page_size,
+                        "total_pages": (total_count + page_size - 1) // page_size,
+                        "notifications": serializer.data,
+                    },
+                },
+                status=status.HTTP_200_OK,
+            )
+        
+        except ValueError:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Invalid pagination parameters.",
+                    "errors": {"detail": ["Page and page_size must be valid integers."]},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Failed to retrieve notifications. Please try again later.",
+                    "errors": {"detail": [str(e)]},
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    def retrieve(self, request, pk=None, *args, **kwargs):
+        """Retrieve a single notification by ID."""
+        try:
+            # Get the notification
+            notification = self.get_queryset().get(pk=pk)
+            
+            # Mark as read
+            if not notification.is_read:
+                notification.is_read = True
+                notification.save(update_fields=['is_read'])
+            
+            serializer = self.get_serializer(notification)
+            
+            return Response(
+                {
+                    "success": True,
+                    "message": "Notification retrieved successfully.",
+                    "data": serializer.data,
+                },
+                status=status.HTTP_200_OK,
+            )
+        
+        except Notification.DoesNotExist:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Notification not found.",
+                    "errors": {"id": ["Notification with this ID does not exist."]},
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Failed to retrieve notification. Please try again later.",
+                    "errors": {"detail": [str(e)]},
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 """ ------------------------Profile UpdateView view--------------------------- """
@@ -893,3 +775,102 @@ class ProfileUpdateView(generics.UpdateAPIView):
         # Return full profile data after update
         profile_serializer = ProfileSerializer(instance, context=self.get_serializer_context())
         return Response(profile_serializer.data)
+    
+
+# """========================= Subscription ViewSet ========================="""
+
+# import requests
+# import datetime
+# from django.conf import settings
+# from django.utils import timezone
+# from rest_framework import viewsets, permissions, status
+# from rest_framework.decorators import action
+# from rest_framework.response import Response
+# from .models import Subscription
+# from .serializers import SubscriptionSerializer
+# from django.utils.translation import gettext as _
+
+# class SubscriptionViewSet(viewsets.ModelViewSet):
+#     permission_classes = [permissions.IsAuthenticated]
+#     serializer_class = SubscriptionSerializer
+
+#     def get_queryset(self):
+#         return Subscription.objects.filter(user=self.request.user)
+
+#     @action(detail=False, methods=["get"], url_path='status')
+#     def status(self, request):
+#         subscription, created = Subscription.objects.get_or_create(user=request.user)
+#         serializer = self.get_serializer(subscription)
+#         return Response(serializer.data)
+
+#     @action(detail=False, methods=["post"], url_path='sync')
+#     def sync_subscription(self, request):
+#         user = request.user
+#         app_user_id = str(user.id)
+        
+#         headers = {
+#             "Authorization": f"Bearer {settings.REVENUECAT_API_KEY}",
+#             "Content-Type": "application/json"
+#         }
+        
+#         url = f"https://api.revenuecat.com/v1/subscribers/{app_user_id}"
+        
+#         try:
+#             response = requests.get(url, headers=headers, timeout=10)
+            
+#             if response.status_code == 200:
+#                 data = response.json()
+#                 subscriber = data.get('subscriber', {})
+#                 entitlements = subscriber.get('entitlements', {})
+                
+#                 subscription, _ = Subscription.objects.get_or_create(user=user)
+                
+#                 active_plan = None
+#                 max_expiration = None
+#                 ent_master = entitlements.get("pro max") or entitlements.get("pro_max")
+#                 if ent_master:
+#                     expires_date_str = ent_master.get("expires_date")
+#                     if expires_date_str:
+#                         expires_date = datetime.datetime.fromisoformat(expires_date_str.replace('Z', '+00:00'))
+#                         if expires_date > timezone.now():
+#                             active_plan = "master"
+#                             max_expiration = expires_date
+#                     else:
+#                         active_plan = "master"
+
+#                 if not active_plan:
+#                     ent_creator = entitlements.get("pro")
+#                     if ent_creator:
+#                         expires_date_str = ent_creator.get("expires_date")
+#                         if expires_date_str:
+#                             expires_date = datetime.datetime.fromisoformat(expires_date_str.replace('Z', '+00:00'))
+#                             if expires_date > timezone.now():
+#                                 active_plan = "creator"
+#                                 max_expiration = expires_date
+#                         else:
+#                             active_plan = "creator"
+
+#                 if active_plan:
+#                     subscription.status = 'active'
+#                     subscription.plan = active_plan
+#                     if max_expiration:
+#                         subscription.current_period_end = max_expiration
+#                 else:
+#                     if subscription.status == 'active':
+#                         subscription.status = 'expired'
+#                         subscription.plan = 'trial'
+#                         subscription.current_period_end = timezone.now()
+                
+#                 subscription.revenue_cat_id = app_user_id
+#                 subscription.save()
+                
+#                 return Response(SubscriptionSerializer(subscription).data, status=status.HTTP_200_OK)
+            
+#             elif response.status_code == 404:
+#                 return Response({"detail": _("User not found in RevenueCat")}, status=status.HTTP_404_NOT_FOUND)
+            
+#             else:
+#                 return Response({"detail": _("Failed to connect to RevenueCat")}, status=status.HTTP_502_BAD_GATEWAY)
+
+#         except Exception as e:
+#             return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

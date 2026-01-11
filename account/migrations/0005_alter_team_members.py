@@ -14,6 +14,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='team',
             name='members',
-            field=models.ManyToManyField(blank=True, null=True, related_name='teams', through='account.TeamMember', to=settings.AUTH_USER_MODEL),
+            field=models.ManyToManyField(blank=True, null=True, related_name='teams', through='teamapp.TeamMember', to=settings.AUTH_USER_MODEL),
         ),
     ]

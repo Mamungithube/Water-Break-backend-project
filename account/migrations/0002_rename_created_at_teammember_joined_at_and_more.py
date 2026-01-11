@@ -39,7 +39,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='teammember',
             name='team',
-            field=models.ForeignKey(default=1, on_delete=django.db.models.deletion.CASCADE, related_name='memberships', to='account.team'),
+            field=models.ForeignKey(default=1, on_delete=django.db.models.deletion.CASCADE, related_name='memberships', to='teamapp.team'),
             preserve_default=False,
         ),
         migrations.AlterUniqueTogether(

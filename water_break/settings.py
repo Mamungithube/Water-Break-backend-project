@@ -49,8 +49,8 @@ AUTH_USER_MODEL = 'account.User'
 INSTALLED_APPS = [
     'daphne',
     "unfold",
-    "unfold.contrib.filters",  # optional, if special filters are needed
-    "unfold.contrib.forms",  # optional, if special form elements are needed
+    "unfold.contrib.filters", 
+    "unfold.contrib.forms",
 
     'django.contrib.admin',
     'django.contrib.auth',
@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     'chat_system',
     'subscription',
     'service',
+    'teamapp',
 
 ]
 

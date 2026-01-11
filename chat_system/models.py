@@ -2,7 +2,7 @@ from django.db import models
 
 # Create your models here.
 from django.contrib.auth import get_user_model
-from account.models import Team
+from teamapp.models import Team
 
 User = get_user_model()
 

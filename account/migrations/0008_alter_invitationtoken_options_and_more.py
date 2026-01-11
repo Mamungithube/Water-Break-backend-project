@@ -26,7 +26,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='invitationtoken',
             name='team',
-            field=models.ForeignKey(default=1, on_delete=django.db.models.deletion.CASCADE, related_name='invitation_tokens', to='account.team'),
+            field=models.ForeignKey(default=1, on_delete=django.db.models.deletion.CASCADE, related_name='invitation_tokens', to='teamapp.team'),
             preserve_default=False,
         ),
         migrations.AlterField(

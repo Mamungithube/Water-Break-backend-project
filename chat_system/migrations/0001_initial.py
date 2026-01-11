@@ -22,7 +22,7 @@ class Migration(migrations.Migration):
                 ('message', models.TextField()),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('sender', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='sent_messages', to=settings.AUTH_USER_MODEL)),
-                ('team', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='chat_messages', to='account.team')),
+                ('team', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='chat_messages', to='teamapp.team')),
             ],
         ),
     ]

@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='drill',
             name='assign_team',
-            field=models.OneToOneField(default=1, on_delete=django.db.models.deletion.CASCADE, to='account.team'),
+            field=models.OneToOneField(default=1, on_delete=django.db.models.deletion.CASCADE, to='teamapp.team'),
             preserve_default=False,
         ),
     ]

@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from .models import TeamChatMessage
-from account.models import Team, TeamMember
+from teamapp.models import Team, TeamMember
 
 class TeamChatHistoryView(APIView):
     permission_classes = [IsAuthenticated]
