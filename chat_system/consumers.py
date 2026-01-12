@@ -63,11 +63,7 @@ class TeamChatConsumer(AsyncWebsocketConsumer):
             if not message:
                 print("⚠️ No message content found.")
                 return
-
-            # ডাটাবেসে সেভ করা (অবশ্যই await দিবেন)
-            await self.save_message(message)
-
-            # অন্য মেম্বারদের মেসেজটি পাঠানো
+            saved = await self.save_message(message)
             await self.channel_layer.group_send(
                 self.group_name,
                 {
@@ -76,14 +72,33 @@ class TeamChatConsumer(AsyncWebsocketConsumer):
                     "message": message,
                 }
             )
+
+            try:
+                member_ids = await self.get_team_member_user_ids()
+                notification_payload = {
+                    "type": "send_notification",
+                    "data": {
+                        "notification_type": "team_message",
+                        "team_id": saved.get("team_id"),
+                        "team_name": saved.get("team_name"),
+                        "message_id": saved.get("id"),
+                        "message": saved.get("message"),
+                        "sender_id": saved.get("sender_id"),
+                        "sender_email": getattr(self.user, "email", None),
+                        "created_at": saved.get("created_at"),
+                    },
+                }
+
+                for uid in member_ids:
+                    await self.channel_layer.group_send(f"user_{uid}", notification_payload)
+            except Exception as e:
+                print(f"❌ Notification send error: {str(e)}")
         except Exception as e:
             print(f"❌ Receive logic error: {str(e)}")
     async def chat_message(self, event):
-        # গ্রুপ থেকে আসা মেসেজটি রিসিভ করা
         message = event.get("message")
         sender = event.get("sender")
 
-        # ক্লায়েন্ট বা পোস্টম্যানের কাছে মেসেজটি পাঠানো
         await self.send(text_data=json.dumps({
             "message": message,
             "sender": sender
@@ -114,16 +129,41 @@ class TeamChatConsumer(AsyncWebsocketConsumer):
     def save_message(self, message):
         try:
             # সরাসরি আইডি ব্যবহার করা নিরাপদ
-            TeamChatMessage.objects.create(
+            msg = TeamChatMessage.objects.create(
                 team_id=self.team_id,
                 sender=self.user,
                 message=message
             )
             print(f"✅ Success: Message saved for Team {self.team_id}")
+            return {
+                "id": msg.id,
+                "team_id": msg.team_id,
+                "team_name": getattr(msg.team, "name", None),
+                "sender_id": msg.sender_id,
+                "message": msg.message,
+                "created_at": msg.created_at.isoformat() if msg.created_at else None,
+            }
         except Exception as e:
             print(f"❌ DB Save Error: {str(e)}")
+            return {}
 
-
+    @database_sync_to_async
+    def get_team_member_user_ids(self):
+        try:
+            team = Team.objects.get(id=self.team_id)
+            member_ids = list(TeamMember.objects.filter(team=team, is_role_approved=True).values_list("member_id", flat=True))
+            # include coach if present
+            if getattr(team, "coach_id", None) and team.coach_id not in member_ids:
+                member_ids.append(team.coach_id)
+            # exclude sender
+            sender_id = getattr(self.user, "id", None)
+            return [uid for uid in member_ids if uid != sender_id]
+        except Team.DoesNotExist:
+            print(f"❌ Team {self.team_id} does not exist (get_team_member_user_ids)")
+            return []
+        except Exception as e:
+            print(f"❌ get_team_member_user_ids error: {str(e)}")
+            return []
 
 
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
