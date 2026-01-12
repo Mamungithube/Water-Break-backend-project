@@ -30,7 +30,9 @@ services:
     build: .
     container_name: django_backend
     # command: daphne -b 0.0.0.0 -p 8000 water_break.asgi:application
-    command: python -m daphne -b 0.0.0.0 -p 8001 water_break.asgi:application
+    command: >
+      sh -c "python manage.py migrate && 
+             python -m daphne -b 0.0.0.0 -p 8001 water_break.asgi:application"
     volumes:
       - .:/app
     ports:
@@ -44,6 +46,32 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+
+  celery_worker:
+    build: .
+    container_name: celery_worker
+    entrypoint: [""]
+    command: celery -A water_break worker --loglevel=info
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - db
+
+  celery_beat:
+    build: .
+    container_name: celery_beat
+    entrypoint: [""]
+    command: celery -A water_break beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - db
 
 volumes:
   postgres_data:
