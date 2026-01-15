@@ -177,7 +177,7 @@ UNFOLD = {
     #                 },
     #                 {
     #                     "title": "Invitation tokens",
-    #                     "link": "/admin/account/invitationtoken/", 
+    #                     "link": "/admin/teamapp/invitationtoken/", 
     #                     "icon": "vpn_key",
     #                 },
     #                 {
@@ -187,12 +187,12 @@ UNFOLD = {
     #                 },
     #                 {
     #                     "title": "Team members",
-    #                     "link": "/admin/account/teammember/", 
+    #                     "link": "/admin/teamapp/teammember/", 
     #                     "icon": "groups",
     #                 },
     #                 {
     #                     "title": "All Teams",
-    #                     "link": "/admin/account/team/", 
+    #                     "link": "/admin/teamapp/team/", 
     #                     "icon": "group",
     #                 },
     #             ],
