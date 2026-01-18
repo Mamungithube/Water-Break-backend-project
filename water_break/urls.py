@@ -24,7 +24,7 @@ urlpatterns = [
     path('api/account/', include('account.urls')),
     path('api/plan/', include('plan.urls')),
     path('api/team/', include('teamapp.urls')),
-    # path('api/chat/', include('chat_system.urls')),
+    path('api/chat/', include('chat_system.urls')),
 
 ]
 if settings.DEBUG:

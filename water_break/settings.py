@@ -31,6 +31,23 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+CSRF_TRUSTED_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000']
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8001",
+    "http://127.0.0.1:3000",
+]
+
+
+# Session settings
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # or 'cache'
+SESSION_COOKIE_SAMESITE = 'Lax'  # or None for cross-origin
+SESSION_COOKIE_SECURE = False  # True in production with HTTPS
+SESSION_COOKIE_HTTPONLY = True
+SESSION_SAVE_EVERY_REQUEST = True
+
+
+
 ALLOWED_HOSTS = [
     '*',
     '74.208.158.27',
@@ -261,8 +278,8 @@ CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0')
 CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/1')
 CELERY_BEAT_SCHEDULE = {
     'send-reminders-periodically': {
-        'task': 'plan.tasks.send_due_reminders_task',  # আপনার টাস্কের পাথ
-        'schedule': 300.0,  # প্রতি ৫ মিনিট (৩০০ সেকেন্ড) পর পর চেক করবে
+        'task': 'plan.tasks.send_due_reminders_task', 
+        'schedule': 300.0, 
     },
 }
 

@@ -1,8 +1,9 @@
 import json
-from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.generic.websocket import AsyncWebsocketConsumer, AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
 from teamapp.models import Team, TeamMember
 from .models import TeamChatMessage
+from account.models import Notification
 from django.contrib.auth.models import AnonymousUser
 
 
@@ -63,18 +64,25 @@ class TeamChatConsumer(AsyncWebsocketConsumer):
             if not message:
                 print("⚠️ No message content found.")
                 return
+                
+            # Message save করুন
             saved = await self.save_message(message)
+            
+            # Team chat এ real-time message পাঠান
             await self.channel_layer.group_send(
                 self.group_name,
                 {
                     "type": "chat_message",
                     "sender": self.user.email,
                     "message": message,
+                    "created_at": saved.get("created_at"),
                 }
             )
 
+            # Notification পাঠান এবং database এ save করুন
             try:
                 member_ids = await self.get_team_member_user_ids()
+                
                 notification_payload = {
                     "type": "send_notification",
                     "data": {
@@ -90,19 +98,29 @@ class TeamChatConsumer(AsyncWebsocketConsumer):
                 }
 
                 for uid in member_ids:
+                    # Real-time WebSocket notification
                     await self.channel_layer.group_send(f"user_{uid}", notification_payload)
+                    
+                    # Database এ notification save করুন
+                    await self.save_notification(uid, saved)
+                    
             except Exception as e:
                 print(f"❌ Notification send error: {str(e)}")
+                
         except Exception as e:
             print(f"❌ Receive logic error: {str(e)}")
+
     async def chat_message(self, event):
         message = event.get("message")
         sender = event.get("sender")
+        created_at = event.get("created_at")
 
         await self.send(text_data=json.dumps({
             "message": message,
-            "sender": sender
+            "sender": sender,
+            "created_at": created_at
         }))
+
     # ---------- DB helpers ----------
 
     @database_sync_to_async
@@ -128,7 +146,6 @@ class TeamChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def save_message(self, message):
         try:
-            # সরাসরি আইডি ব্যবহার করা নিরাপদ
             msg = TeamChatMessage.objects.create(
                 team_id=self.team_id,
                 sender=self.user,
@@ -148,14 +165,32 @@ class TeamChatConsumer(AsyncWebsocketConsumer):
             return {}
 
     @database_sync_to_async
+    def save_notification(self, recipient_id, message_data):
+        try:
+            Notification.objects.create(
+                recipient_id=recipient_id,
+                sender=self.user,
+                team_id=message_data.get("team_id"),
+                notification_type='team_message',
+                message=f"{self.user.email}: {message_data.get('message')[:50]}...",
+                related_message_id=message_data.get("id"),
+                is_read=False
+            )
+            print(f"✅ Notification saved for user {recipient_id}")
+        except Exception as e:
+            print(f"❌ Notification save error: {str(e)}")
+
+    @database_sync_to_async
     def get_team_member_user_ids(self):
         try:
             team = Team.objects.get(id=self.team_id)
             member_ids = list(TeamMember.objects.filter(team=team, is_role_approved=True).values_list("member_id", flat=True))
-            # include coach if present
+            
+            # Coach include করুন
             if getattr(team, "coach_id", None) and team.coach_id not in member_ids:
                 member_ids.append(team.coach_id)
-            # exclude sender
+            
+            # Sender কে বাদ দিন
             sender_id = getattr(self.user, "id", None)
             return [uid for uid in member_ids if uid != sender_id]
         except Team.DoesNotExist:
@@ -166,8 +201,7 @@ class TeamChatConsumer(AsyncWebsocketConsumer):
             return []
 
 
-from channels.generic.websocket import AsyncJsonWebsocketConsumer
-
+# ✅ NotificationConsumer যোগ করুন
 class NotificationConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
         user = self.scope["user"]
@@ -180,12 +214,15 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
                 self.channel_name
             )
             await self.accept()
+            print(f"✅ NotificationConsumer: User {user.email} connected")
 
     async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(
-            self.group_name,
-            self.channel_name
-        )
+        if hasattr(self, 'group_name'):
+            await self.channel_layer.group_discard(
+                self.group_name,
+                self.channel_name
+            )
+            print(f"NotificationConsumer: User disconnected from {self.group_name}")
 
     async def send_notification(self, event):
         await self.send_json(event["data"])

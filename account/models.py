@@ -2,7 +2,6 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils import timezone
 from datetime import timedelta
-
 # compatibility helper for older migrations that reference
 # `account.models.get_expiry_date` (InvitationToken default)
 def get_expiry_date():
@@ -123,6 +122,7 @@ class ProcessedWebhookEvent(models.Model):
 class Notification(models.Model):
     NOTIFICATION_TYPES = (
         ('join_request', 'Join Request'),
+        ('team_message', 'Team Message'),
     )
 
     recipient = models.ForeignKey(
@@ -141,10 +141,21 @@ class Notification(models.Model):
         null=True,
         blank=True
     )
-    notification_type = models.CharField(max_length=30)
+    notification_type = models.CharField(max_length=30, choices=NOTIFICATION_TYPES)
     message = models.TextField()
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    related_message = models.ForeignKey(
+        'chat_system.TeamChatMessage',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='notifications'
+    )
+
+    class Meta: 
+        ordering = ['-created_at']  
 
     def __str__(self):
         return f"Notification to {self.recipient.email}"

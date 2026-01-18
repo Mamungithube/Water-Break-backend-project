@@ -30,8 +30,8 @@ urlpatterns = [
     # authentication part urls
     path('register/', RegisterApiView.as_view(), name='user-register'),
     path('auth/google/login/', GoogleLoginInitView.as_view(), name='google-login'),
-    path('login/', LoginAPIView.as_view(), name='login'),
     path('auth/google/callback/', GoogleCallbackView.as_view(), name='google-callback'),
+    path('login/', LoginAPIView.as_view(), name='login'),
     path('resend_otp/', ResendOTPApiView.as_view(), name='resend-otp'),
     path('verify_otp/', VerifyOTPApiView.as_view(), name='verify-otp'),
     path('forget-pass/', ForgotPasswordAPIView.as_view(), name='forget-password'),

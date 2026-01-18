@@ -5,6 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from .models import TeamChatMessage
 from teamapp.models import Team, TeamMember
+from account.models import Notification
+
 
 class TeamChatHistoryView(APIView):
     permission_classes = [IsAuthenticated]
@@ -109,3 +111,75 @@ class TeamChatHistoryView(APIView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+        
+
+
+
+# views.py
+
+class NotificationListView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        try:
+            # User এর সব unread notifications
+            notifications = Notification.objects.filter(
+                recipient=request.user,
+                is_read=False
+            ).select_related('sender', 'team', 'related_message').order_by('-created_at')[:50]
+            
+            data = [
+                {
+                    "id": n.id,
+                    "notification_type": n.notification_type,
+                    "message": n.message,
+                    "sender": {
+                        "id": n.sender.id,
+                        "email": n.sender.email,
+                        "fullname": getattr(n.sender, 'Fullname', n.sender.email)
+                    },
+                    "team": {
+                        "id": n.team.id,
+                        "name": n.team.name
+                    } if n.team else None,
+                    "is_read": n.is_read,
+                    "created_at": n.created_at.isoformat()
+                }
+                for n in notifications
+            ]
+            
+            return Response({
+                "success": True,
+                "unread_count": notifications.count(),
+                "notifications": data
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class MarkNotificationReadView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, notification_id):
+        try:
+            notification = Notification.objects.get(
+                id=notification_id,
+                recipient=request.user
+            )
+            notification.is_read = True
+            notification.save()
+            
+            return Response({
+                "success": True,
+                "message": "Notification marked as read"
+            }, status=status.HTTP_200_OK)
+            
+        except Notification.DoesNotExist:
+            return Response({
+                "success": False,
+                "message": "Notification not found"
+            }, status=status.HTTP_404_NOT_FOUND)
