@@ -5,7 +5,6 @@ from .models import Drill, Block, plan
 
 @admin.register(Drill)
 class DrillAdmin(ModelAdmin):
-    # ড্যাশবোর্ডে কোন কলামগুলো দেখাবে
     list_display = ["name", "get_assign_teams", "category", "create_By", "date_created"]
     
     fieldsets = (
@@ -19,14 +18,13 @@ class DrillAdmin(ModelAdmin):
         }),
     )
     
-    # create_By field টি readonly করে show করতে চাইলে
     readonly_fields = ["create_By", "date_created", "date_modified"]
     
     def save_model(self, request, obj, form, change):
         """
         Automatically set create_By to current logged-in user
         """
-        if not change:  # শুধুমাত্র নতুন object create করার সময়
+        if not change:  
             obj.create_By = request.user
         super().save_model(request, obj, form, change)
     
@@ -45,7 +43,6 @@ class DrillAdmin(ModelAdmin):
 
 @admin.register(Block)
 class BlockAdmin(ModelAdmin):
-    # ড্যাশবোর্ডে কোন কলামগুলো দেখাবে
     list_display = ["title",  "drill", "start_time", "end_time"]
     list_filter = ["drill",  "start_time"]
     search_fields = ["title", "drill__name"]

@@ -122,7 +122,7 @@ class NotificationListView(APIView):
     
     def get(self, request):
         try:
-            # User এর সব unread notifications
+            # All User unread notifications
             notifications = Notification.objects.filter(
                 recipient=request.user,
                 is_read=False

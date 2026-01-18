@@ -79,7 +79,7 @@ class TeamChatConsumer(AsyncWebsocketConsumer):
                 }
             )
 
-            # Notification পাঠান এবং database এ save করুন
+            # Send notifications to team members
             try:
                 member_ids = await self.get_team_member_user_ids()
                 
@@ -186,11 +186,10 @@ class TeamChatConsumer(AsyncWebsocketConsumer):
             team = Team.objects.get(id=self.team_id)
             member_ids = list(TeamMember.objects.filter(team=team, is_role_approved=True).values_list("member_id", flat=True))
             
-            # Coach include করুন
+        
             if getattr(team, "coach_id", None) and team.coach_id not in member_ids:
                 member_ids.append(team.coach_id)
             
-            # Sender কে বাদ দিন
             sender_id = getattr(self.user, "id", None)
             return [uid for uid in member_ids if uid != sender_id]
         except Team.DoesNotExist:
@@ -201,7 +200,9 @@ class TeamChatConsumer(AsyncWebsocketConsumer):
             return []
 
 
-# ✅ NotificationConsumer যোগ করুন
+
+
+
 class NotificationConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
         user = self.scope["user"]
