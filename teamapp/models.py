@@ -61,7 +61,7 @@ class TeamMember(models.Model):
         choices=ROLE_CHOICES,
         default='player'
     )
-
+    team_position = models.CharField(max_length=25, blank=False, null=False)
     is_role_approved = models.BooleanField(default=False)
     joined_at = models.DateTimeField(auto_now_add=True)
 
