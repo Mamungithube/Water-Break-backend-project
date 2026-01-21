@@ -1,11 +1,13 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
-from .models import Drill, Block, plan
+from .models import Drill, Block, plan, Notification, Reminder
 
 
 @admin.register(Drill)
 class DrillAdmin(ModelAdmin):
     list_display = ["name", "get_assign_teams", "category", "create_By", "date_created"]
+    list_filter = ["category", "date_created"]
+    search_fields = ["name", "category", "description"]
     
     fieldsets = (
         ("Main Information", {
@@ -21,60 +23,141 @@ class DrillAdmin(ModelAdmin):
     readonly_fields = ["create_By", "date_created", "date_modified"]
     
     def save_model(self, request, obj, form, change):
-        """
-        Automatically set create_By to current logged-in user
-        """
+        """Automatically set create_By to current logged-in user"""
         if not change:  
             obj.create_By = request.user
         super().save_model(request, obj, form, change)
     
     def get_readonly_fields(self, request, obj=None):
-        """
-        Edit করার সময় create_By field readonly থাকবে
-        """
+        """Edit করার সময় create_By field readonly থাকবে"""
         if obj:  # editing existing object
             return self.readonly_fields + ["create_By"]
         return self.readonly_fields
 
     def get_assign_teams(self, obj):
         return ", ".join([t.name for t in obj.assign_team.all()])
-    get_assign_teams.short_description = "Assign Teams"
+    get_assign_teams.short_description = "Assigned Teams"
 
 
 @admin.register(Block)
 class BlockAdmin(ModelAdmin):
-    list_display = ["title",  "drill", "start_time", "end_time"]
-    list_filter = ["drill",  "start_time"]
+    list_display = ["title", "drill", "practice_plan", "start_time", "end_time", "created_at"]
+    list_filter = ["drill", "practice_plan", "start_time"]
     search_fields = ["title", "drill__name"]
     
     fieldsets = (
         ("Main Information", {
             "fields": (
                 "drill",
+                "practice_plan",
                 "title",
+                "color_code",
+            )
+        }),
+        ("Time Schedule", {
+            "fields": (
                 "start_time",
                 "end_time",
             )
         }),
     )
+    
+    readonly_fields = ["created_at", "updated_at"]
 
 
 @admin.register(plan)
 class PlanAdmin(ModelAdmin):
-    list_display = ["plan_title", "prectice_time", "get_plan_blocks", "created_at"]
-    list_filter = ["prectice_time"]
-    search_fields = ["plan_title"]
+    list_display = ["id", "plan_title", "create_By", "get_plan_blocks", "start_practice_time", "end_practice_time", "created_at"] 
+    list_filter = ["start_practice_time", "created_at"]
+    search_fields = ["plan_title", "create_By__username"]
     
     fieldsets = (
         ("Main Information", {
             "fields": (
+                "create_By",
                 "plan_title",
-                "Plan_Block",
-                "prectice_time",
+            )
+        }),
+        ("Schedule", {
+            "fields": (
+                "start_practice_time",
+                "end_practice_time",
+            )
+        }),
+    )
+    
+    readonly_fields = ["create_By", "created_at", "updated_at"]
+    
+    def save_model(self, request, obj, form, change):
+        """Automatically set create_By to current logged-in user"""
+        if not change:
+            obj.create_By = request.user
+        super().save_model(request, obj, form, change)
+    
+    def get_readonly_fields(self, request, obj=None):
+        """Edit করার সময় create_By field readonly থাকবে"""
+        if obj:
+            return self.readonly_fields + ["create_By"]
+        return self.readonly_fields
+
+    def get_plan_blocks(self, obj):
+        blocks = obj.Plan_Block.all()
+        if blocks.exists():
+            return ", ".join([b.title for b in blocks])
+        return "No blocks"
+    get_plan_blocks.short_description = "Blocks"
+
+
+@admin.register(Notification)
+class NotificationAdmin(ModelAdmin):
+    list_display = ["title", "user", "read", "created_at"]
+    list_filter = ["read", "created_at"]
+    search_fields = ["title", "message", "user__username", "user__email"]
+    readonly_fields = ["created_at"]
+    
+    fieldsets = (
+        ("Notification Details", {
+            "fields": (
+                "user",
+                "title",
+                "message",
+                "read",
+            )
+        }),
+        ("Metadata", {
+            "fields": (
+                "created_at",
             )
         }),
     )
 
-    def get_plan_blocks(self, obj):
-        return ", ".join([b.title for b in obj.Plan_Block.all()])
-    get_plan_blocks.short_description = "Blocks"
+
+@admin.register(Reminder)
+class ReminderAdmin(ModelAdmin):
+    list_display = ["created_for", "content_type", "object_id", "send_at", "sent", "sent_at"]
+    list_filter = ["sent", "send_at", "method_email", "method_notification"]
+    search_fields = ["created_for__username", "created_for__email"]
+    readonly_fields = ["content_type", "object_id", "sent_at", "created_at"]
+    
+    fieldsets = (
+        ("Reminder Target", {
+            "fields": (
+                "content_type",
+                "object_id",
+                "created_for",
+            )
+        }),
+        ("Schedule", {
+            "fields": (
+                "send_at",
+                "sent",
+                "sent_at",
+            )
+        }),
+        ("Methods", {
+            "fields": (
+                "method_email",
+                "method_notification",
+            )
+        }),
+    )

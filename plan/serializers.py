@@ -22,7 +22,6 @@ class DrillSerializer(serializers.ModelSerializer):
         user = self.context['request'].user
         from teamapp.models import Team
         
-        # Get teams created by this coach (using 'coach' field instead of 'created_by')
         coach_teams = Team.objects.filter(coach=user)
         
         for team in value:
@@ -35,22 +34,29 @@ class DrillSerializer(serializers.ModelSerializer):
 
 
 class BlockSerializer(serializers.ModelSerializer):
-    # Nested drill serializer for editing drill details through block
-    drill_details = DrillSerializer(source='drill', read_only=False, required=False)
+    drill_details = DrillSerializer(source='drill', read_only=True)
     
-    # Keep drill ID field for creating new blocks
     drill = serializers.PrimaryKeyRelatedField(
         queryset=Drill.objects.all(),
         required=False
+    )
+    
+    # Practice plan field - can be null
+    practice_plan = serializers.PrimaryKeyRelatedField(
+        queryset=plan.objects.all(),
+        required=False,
+        allow_null=True
     )
     
     class Meta:
         model = Block
         fields = [
             'id', 
-            'drill',  # For creating new blocks
-            'drill_details',  # For editing drill details
+            'drill',
+            'drill_details',
+            'practice_plan',  # ← এটা যোগ করা হয়েছে
             'title', 
+            'color_code',
             'start_time', 
             'end_time', 
             'created_at', 
@@ -67,37 +73,43 @@ class BlockSerializer(serializers.ModelSerializer):
             )
         return value
 
+    def validate_practice_plan(self, value):
+        """Validate that the practice plan belongs to the current user"""
+        if value:
+            user = self.context['request'].user
+            if value.create_By != user:
+                raise serializers.ValidationError(
+                    "You can only assign blocks to your own practice plans."
+                )
+        return value
+
     def update(self, instance, validated_data):
         """Allow updating drill details through block"""
         drill_data = validated_data.pop('drill', None)
         
-        # Update block fields
         instance.title = validated_data.get('title', instance.title)
+        instance.color_code = validated_data.get('color_code', instance.color_code)
         instance.start_time = validated_data.get('start_time', instance.start_time)
         instance.end_time = validated_data.get('end_time', instance.end_time)
+        instance.practice_plan = validated_data.get('practice_plan', instance.practice_plan)
         instance.save()
         
-        # Update drill fields if drill_details is provided
         if drill_data:
             drill = instance.drill
             user = self.context['request'].user
             
-            # Security check: only drill creator can edit
             if drill.create_By != user:
                 raise serializers.ValidationError(
                     "You can only edit drills that you created."
                 )
             
-            # Update drill fields
             drill.name = drill_data.get('name', drill.name)
             drill.category = drill_data.get('category', drill.category)
             drill.description = drill_data.get('description', drill.description)
             
-            # Handle assign_team if provided
             if 'assign_team' in drill_data:
                 assign_teams = drill_data.get('assign_team', [])
                 
-                # Validate teams belong to coach (using 'coach' field)
                 from teamapp.models import Team
                 coach_teams = Team.objects.filter(coach=user)
                 
@@ -121,7 +133,33 @@ class BlockSerializer(serializers.ModelSerializer):
 
 
 class planSerializer(serializers.ModelSerializer):
+    create_By = serializers.PrimaryKeyRelatedField(read_only=True)
+    creator_name = serializers.CharField(source='create_By.username', read_only=True)
+    
+    plan_blocks_detail = BlockSerializer(source='Plan_Block', many=True, read_only=True)
+    
+    Plan_Block = serializers.PrimaryKeyRelatedField(
+        queryset=Block.objects.all(),
+        many=True,
+        required=False
+    )
+    
+    
     class Meta:
         model = plan
-        fields = ['id', 'plan_title', 'Plan_Block', 'prectice_time', 'created_at', 'updated_at']
-        read_only_fields = ['created_at', 'updated_at']
+        fields = [
+            'id', 'create_By', 'creator_name', 'plan_title', 
+            'Plan_Block', 'plan_blocks_detail', 'start_practice_time', 'end_practice_time',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'create_By']
+
+    def update(self, instance, validated_data):
+        blocks = validated_data.pop('Plan_Block', None)
+        instance = super().update(instance, validated_data)
+        
+        if blocks is not None:
+            for block in blocks:
+                block.practice_plan = instance
+                block.save()
+        return instance
