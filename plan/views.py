@@ -262,6 +262,271 @@ class BlockViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+from django.shortcuts import render
+from django.http import Http404
+from rest_framework.exceptions import ValidationError as DRFValidationError
+from rest_framework import status, viewsets
+from .models import Drill, Block, plan
+from .serializers import DrillSerializer, BlockSerializer, planSerializer
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from .permissions import IsCoachOrAssistant
+from datetime import datetime
+
+
+class DrillViewSet(viewsets.ModelViewSet):
+    queryset = Drill.objects.all()
+    serializer_class = DrillSerializer
+    permission_classes = [IsAuthenticated, IsCoachOrAssistant]
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if user.role in ['coach', 'assistant']:
+            return Drill.objects.filter(create_By=user)
+        else:
+            from teamapp.models import Team
+            user_teams = Team.objects.filter(members=user)
+            return Drill.objects.filter(assign_team__in=user_teams).distinct()
+
+    def perform_create(self, serializer):
+        serializer.save(create_By=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        try:
+            response = super().create(request, *args, **kwargs)
+            data = response.data or {}
+            return Response({
+                'status': 'success',
+                'message': 'Drill created successfully',
+                'data': data
+            }, status=status.HTTP_201_CREATED)
+        except DRFValidationError as e:
+            return Response({
+                'status': 'error',
+                'message': 'Validation error',
+                'errors': e.detail
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': 'Failed to create drill',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            drill = self.get_object()
+            super().destroy(request, *args, **kwargs)
+            return Response({
+                'status': 'success',
+                'message': 'Drill deleted successfully',
+                'data': {'id': drill.id}
+            }, status=status.HTTP_200_OK)
+        except Http404:
+            return Response({
+                'status': 'error',
+                'message': 'Drill not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': 'Failed to delete drill',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def update(self, request, *args, **kwargs):
+        try:
+            response = super().update(request, *args, **kwargs)
+            data = response.data or {}
+            return Response({
+                'status': 'success',
+                'message': 'Drill updated successfully',
+                'data': data
+            }, status=status.HTTP_200_OK)
+        except Http404:
+            return Response({
+                'status': 'error',
+                'message': 'Drill not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except DRFValidationError as e:
+            return Response({
+                'status': 'error',
+                'message': 'Validation error',
+                'errors': e.detail
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': 'Failed to update drill',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class BlockViewSet(viewsets.ModelViewSet):
+    queryset = Block.objects.all()
+    serializer_class = BlockSerializer
+    permission_classes = [IsAuthenticated, IsCoachOrAssistant]
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if user.role in ['coach', 'assistant']:
+            return Block.objects.filter(drill__create_By=user)
+        else:
+            from teamapp.models import Team
+            user_teams = Team.objects.filter(members=user)
+            return Block.objects.filter(
+                drill__assign_team__in=user_teams
+            ).distinct()
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+    def list(self, request, *args, **kwargs):
+        try:
+            queryset = self.get_queryset()
+            serializer = self.get_serializer(queryset, many=True)
+            return Response({
+                'status': 'success',
+                'count': queryset.count(),
+                'data': serializer.data
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': 'Failed to fetch blocks',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            block_id = kwargs.get('pk')
+
+            if not Block.objects.filter(id=block_id).exists():
+                return Response({
+                    'status': 'error',
+                    'message': f'Block with ID {block_id} does not exist'
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            try:
+                instance = self.get_object()
+            except Http404:
+                return Response({
+                    'status': 'error',
+                    'message': 'Access denied',
+                    'detail': 'You do not have permission to view this block'
+                }, status=status.HTTP_403_FORBIDDEN)
+
+            serializer = self.get_serializer(instance)
+            return Response({
+                'status': 'success',
+                'data': serializer.data
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': 'Failed to retrieve block',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def create(self, request, *args, **kwargs):
+        try:
+            response = super().create(request, *args, **kwargs)
+            data = response.data or {}
+            return Response({
+                'status': 'success',
+                'message': 'Block created successfully',
+                'data': data
+            }, status=status.HTTP_201_CREATED)
+        except DRFValidationError as e:
+            return Response({
+                'status': 'error',
+                'message': 'Validation error',
+                'errors': e.detail
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': 'Failed to create block',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            block_id = kwargs.get('pk')
+
+            if not Block.objects.filter(id=block_id).exists():
+                return Response({
+                    'status': 'error',
+                    'message': f'Block with ID {block_id} does not exist'
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            try:
+                block = self.get_object()
+            except Http404:
+                return Response({
+                    'status': 'error',
+                    'message': 'Access denied',
+                    'detail': 'You do not have permission to delete this block'
+                }, status=status.HTTP_403_FORBIDDEN)
+
+            super().destroy(request, *args, **kwargs)
+            return Response({
+                'status': 'success',
+                'message': 'Block deleted successfully',
+                'data': {'id': block.id}
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': 'Failed to delete block',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def update(self, request, *args, **kwargs):
+        try:
+            block_id = kwargs.get('pk')
+
+            if not Block.objects.filter(id=block_id).exists():
+                return Response({
+                    'status': 'error',
+                    'message': f'Block with ID {block_id} does not exist'
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            try:
+                block = self.get_object()
+            except Http404:
+                return Response({
+                    'status': 'error',
+                    'message': 'Access denied',
+                    'detail': 'You do not have permission to update this block'
+                }, status=status.HTTP_403_FORBIDDEN)
+
+            response = super().update(request, *args, **kwargs)
+            data = response.data or {}
+            return Response({
+                'status': 'success',
+                'message': 'Block updated successfully',
+                'data': data
+            }, status=status.HTTP_200_OK)
+
+        except DRFValidationError as e:
+            return Response({
+                'status': 'error',
+                'message': 'Validation error',
+                'errors': e.detail
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': 'Failed to update block',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 class PlanViewSet(viewsets.ModelViewSet):
     queryset = plan.objects.all()
     serializer_class = planSerializer
@@ -273,12 +538,56 @@ class PlanViewSet(viewsets.ModelViewSet):
             'Plan_Block',
             'Plan_Block__drill'
         )
+        
+        # Apply role-based filtering
         if user.role in ['coach', 'assistant']:
-            return queryset.filter(create_By=user).distinct()
+            queryset = queryset.filter(create_By=user)
         else:
             from teamapp.models import Team
             user_teams = Team.objects.filter(members=user)
-            return queryset.filter(Plan_Block__drill__assign_team__in=user_teams).distinct()
+            queryset = queryset.filter(Plan_Block__drill__assign_team__in=user_teams)
+        
+        # Apply date filtering if provided
+        date_param = self.request.query_params.get('date', None)
+        if date_param:
+            try:
+                # Parse the date string (expected format: YYYY-MM-DD)
+                filter_date = datetime.strptime(date_param, '%Y-%m-%d').date()
+                
+                # Filter plans where start_practice_time is on this date
+                queryset = queryset.filter(
+                    start_practice_time__date=filter_date
+                )
+            except ValueError:
+                # If date format is invalid, return empty queryset
+                # Or you could raise a ValidationError instead
+                pass
+        
+        return queryset.distinct()
+
+    def list(self, request, *args, **kwargs):
+        """Override list to provide custom response format with date filtering"""
+        try:
+            queryset = self.get_queryset()
+            serializer = self.get_serializer(queryset, many=True)
+            
+            date_param = request.query_params.get('date', None)
+            message = 'Plans retrieved successfully'
+            if date_param:
+                message = f'Plans for {date_param} retrieved successfully'
+            
+            return Response({
+                'status': 'success',
+                'message': message,
+                'count': queryset.count(),
+                'data': serializer.data
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': 'Failed to fetch plans',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def create(self, request, *args, **kwargs):
         try:
@@ -299,7 +608,6 @@ class PlanViewSet(viewsets.ModelViewSet):
                     block.practice_plan = plan_instance
                     block.save()
 
-                # Clean response format
                 return Response({
                     "status": "success",
                     "message": "Plan created successfully",
@@ -343,7 +651,6 @@ class PlanViewSet(viewsets.ModelViewSet):
 
                 serializer.save()
                 
-                # Clean response format
                 return Response({
                     "status": "success",
                     "message": "Plan updated successfully",
