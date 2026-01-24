@@ -12,7 +12,7 @@ from django.dispatch import receiver
 
 class Drill(models.Model):
     create_By = models.ForeignKey('account.User', on_delete=models.CASCADE)
-    assign_team = models.ManyToManyField("teamapp.Team")
+    assign_team = models.ManyToManyField("teamapp.Team" , blank=True, related_name='drills')
     name = models.CharField(max_length=50)
     category = models.TextField(max_length=100)
     description = models.TextField(max_length=250)
@@ -36,7 +36,7 @@ class plan(models.Model):
 
 
 class Block(models.Model):
-    drill = models.ForeignKey(Drill, on_delete=models.CASCADE)
+    drill = models.ForeignKey(Drill, on_delete=models.CASCADE , related_name='blocks', null=True, blank=True)
     practice_plan = models.ForeignKey(plan, on_delete=models.CASCADE, related_name='Plan_Block', null=True, blank=True)
     title = models.CharField(max_length=50)
     color_code = models.CharField(max_length=7, null=True, blank=True)

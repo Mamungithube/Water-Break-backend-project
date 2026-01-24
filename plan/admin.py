@@ -5,7 +5,7 @@ from .models import Drill, Block, plan, Notification, Reminder
 
 @admin.register(Drill)
 class DrillAdmin(ModelAdmin):
-    list_display = ["name", "get_assign_teams", "category", "create_By", "date_created"]
+    list_display = ["name","id", "get_assign_teams", "category", "create_By", "date_created"]
     list_filter = ["category", "date_created"]
     search_fields = ["name", "category", "description"]
     
@@ -41,7 +41,7 @@ class DrillAdmin(ModelAdmin):
 
 @admin.register(Block)
 class BlockAdmin(ModelAdmin):
-    list_display = ["title", "drill", "practice_plan", "start_time", "end_time", "created_at"]
+    list_display = ["title","id", "drill", "practice_plan", "start_time", "end_time", "created_at"]
     list_filter = ["drill", "practice_plan", "start_time"]
     search_fields = ["title", "drill__name"]
     

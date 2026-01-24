@@ -34,7 +34,7 @@ class DrillSerializer(serializers.ModelSerializer):
 
 
 class BlockSerializer(serializers.ModelSerializer):
-    drill_details = DrillSerializer(source='drill', read_only=True)
+    drill_details = serializers.SerializerMethodField()  # ✅ Changed to SerializerMethodField
     
     drill = serializers.PrimaryKeyRelatedField(
         queryset=Drill.objects.all(),
@@ -54,7 +54,7 @@ class BlockSerializer(serializers.ModelSerializer):
             'id', 
             'drill',
             'drill_details',
-            'practice_plan',  # ← এটা যোগ করা হয়েছে
+            'practice_plan',
             'title', 
             'color_code',
             'start_time', 
@@ -63,6 +63,10 @@ class BlockSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
+
+    def get_drill_details(self, obj):
+        """Get drill details for display"""
+        return DrillSerializer(obj.drill).data
 
     def validate_drill(self, value):
         """Validate that the drill belongs to the current user"""
@@ -85,8 +89,13 @@ class BlockSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         """Allow updating drill details through block"""
-        drill_data = validated_data.pop('drill', None)
+        request = self.context.get('request')
+        user = request.user if request else None
         
+        # Get drill_details from request data (not validated_data)
+        drill_details_data = request.data.get('drill_details', None) if request else None
+        
+        # Update block fields
         instance.title = validated_data.get('title', instance.title)
         instance.color_code = validated_data.get('color_code', instance.color_code)
         instance.start_time = validated_data.get('start_time', instance.start_time)
@@ -94,42 +103,48 @@ class BlockSerializer(serializers.ModelSerializer):
         instance.practice_plan = validated_data.get('practice_plan', instance.practice_plan)
         instance.save()
         
-        if drill_data:
+        # Update drill fields if drill_details is provided
+        if drill_details_data and user:
             drill = instance.drill
-            user = self.context['request'].user
             
+            # Security check: only drill creator can edit
             if drill.create_By != user:
                 raise serializers.ValidationError(
                     "You can only edit drills that you created."
                 )
             
-            drill.name = drill_data.get('name', drill.name)
-            drill.category = drill_data.get('category', drill.category)
-            drill.description = drill_data.get('description', drill.description)
+            # Update drill fields
+            if 'name' in drill_details_data:
+                drill.name = drill_details_data['name']
             
-            if 'assign_team' in drill_data:
-                assign_teams = drill_data.get('assign_team', [])
+            if 'category' in drill_details_data:
+                drill.category = drill_details_data['category']
+            
+            if 'description' in drill_details_data:
+                drill.description = drill_details_data['description']
+            
+            # Handle assign_team if provided
+            if 'assign_team' in drill_details_data:
+                team_ids = drill_details_data['assign_team']
                 
+                # Validate teams belong to coach
                 from teamapp.models import Team
                 coach_teams = Team.objects.filter(coach=user)
+                coach_team_ids = list(coach_teams.values_list('id', flat=True))
                 
-                for team in assign_teams:
-                    if team not in coach_teams:
+                # Check each team
+                for team_id in team_ids:
+                    if team_id not in coach_team_ids:
                         raise serializers.ValidationError(
-                            f"You can only assign teams that you created. Team '{team.name}' is not your team."
+                            f"You can only assign teams that you created. Team ID {team_id} is not your team."
                         )
                 
-                drill.assign_team.set(assign_teams)
+                # Set the teams
+                drill.assign_team.set(team_ids)
             
             drill.save()
         
         return instance
-
-    def to_representation(self, instance):
-        """Include drill details in response"""
-        representation = super().to_representation(instance)
-        representation['drill_details'] = DrillSerializer(instance.drill).data
-        return representation
 
 
 class planSerializer(serializers.ModelSerializer):
@@ -143,7 +158,6 @@ class planSerializer(serializers.ModelSerializer):
         many=True,
         required=False
     )
-    
     
     class Meta:
         model = plan
