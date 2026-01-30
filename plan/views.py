@@ -1,5 +1,3 @@
-
-
 from django.shortcuts import render
 from django.http import Http404
 from rest_framework.exceptions import ValidationError as DRFValidationError
@@ -21,11 +19,14 @@ class DrillViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         if user.role in ['coach', 'assistant']:
-            return Drill.objects.filter(create_By=user)
+            # ✅ CHANGE - Coach তার নিজের drills এবং assistant তার assigned drills
+            if user.role == 'coach':
+                return Drill.objects.filter(create_By=user)
+            else:  # assistant
+                return Drill.objects.filter(assistant_coach=user) | Drill.objects.filter(create_By=user)
         else:
-            from teamapp.models import Team
-            user_teams = Team.objects.filter(members=user)
-            return Drill.objects.filter(assign_team__in=user_teams).distinct()
+            # ✅ CHANGE - Regular members তাদের assigned drills দেখতে পারবে
+            return Drill.objects.filter(assigned_members=user).distinct()
 
     def perform_create(self, serializer):
         serializer.save(create_By=self.request.user)
@@ -110,13 +111,14 @@ class BlockViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         if user.role in ['coach', 'assistant']:
-            return Block.objects.filter(drill__create_By=user)
+            # ✅ CHANGE - Coach তার নিজের blocks এবং assistant তার assigned drill এর blocks
+            if user.role == 'coach':
+                return Block.objects.filter(drill__create_By=user)
+            else:  # assistant
+                return Block.objects.filter(drill__assistant_coach=user) | Block.objects.filter(drill__create_By=user)
         else:
-            from teamapp.models import Team
-            user_teams = Team.objects.filter(members=user)
-            return Block.objects.filter(
-                drill__assign_team__in=user_teams
-            ).distinct()
+            # ✅ CHANGE - Regular members তাদের assigned drills এর blocks দেখতে পারবে
+            return Block.objects.filter(drill__assigned_members=user).distinct()
 
     def perform_create(self, serializer):
         serializer.save()
@@ -276,31 +278,27 @@ class PlanViewSet(viewsets.ModelViewSet):
             'Plan_Block',
             'Plan_Block__drill'
         )
-        
-        # Apply role-based filtering
+
+        # ✅ CHANGE - Role-based filtering অনুসারে
         if user.role in ['coach', 'assistant']:
-            queryset = queryset.filter(create_By=user)
+            if user.role == 'coach':
+                queryset = queryset.filter(create_By=user)
+            else:  # assistant
+                # Assistant তার assigned drills এর plans দেখতে পারবে
+                queryset = queryset.filter(Plan_Block__drill__assistant_coach=user).distinct()
         else:
-            from teamapp.models import Team
-            user_teams = Team.objects.filter(members=user)
-            queryset = queryset.filter(Plan_Block__drill__assign_team__in=user_teams)
-        
+            # Regular members তাদের assigned drills এর plans দেখতে পারবে
+            queryset = queryset.filter(Plan_Block__drill__assigned_members=user).distinct()
+
         # Apply date filtering if provided
         date_param = self.request.query_params.get('date', None)
         if date_param:
             try:
-                # Parse the date string (expected format: YYYY-MM-DD)
                 filter_date = datetime.strptime(date_param, '%Y-%m-%d').date()
-                
-                # Filter plans where start_practice_time is on this date
-                queryset = queryset.filter(
-                    start_practice_time__date=filter_date
-                )
+                queryset = queryset.filter(start_practice_time__date=filter_date)
             except ValueError:
-                # If date format is invalid, return empty queryset
-                # Or you could raise a ValidationError instead
                 pass
-        
+
         return queryset.distinct()
 
     def list(self, request, *args, **kwargs):
@@ -308,12 +306,12 @@ class PlanViewSet(viewsets.ModelViewSet):
         try:
             queryset = self.get_queryset()
             serializer = self.get_serializer(queryset, many=True)
-            
+
             date_param = request.query_params.get('date', None)
             message = 'Plans retrieved successfully'
             if date_param:
                 message = f'Plans for {date_param} retrieved successfully'
-            
+
             return Response({
                 'status': 'success',
                 'message': message,
@@ -331,8 +329,10 @@ class PlanViewSet(viewsets.ModelViewSet):
         try:
             serializer = self.get_serializer(data=request.data)
             if serializer.is_valid():
-                blocks = serializer.validated_data.get('Plan_Block', [])
-                
+                blocks = serializer.validated_data.pop('Plan_Block', [])
+                assign_teams = serializer.validated_data.pop('assign_team', [])
+
+                # Validate blocks
                 for block in blocks:
                     if block.drill.create_By != request.user:
                         return Response({
@@ -340,24 +340,34 @@ class PlanViewSet(viewsets.ModelViewSet):
                             "message": f"Block '{block.title}' belongs to a drill you did not create."
                         }, status=status.HTTP_400_BAD_REQUEST)
 
+                # Create plan instance
                 plan_instance = serializer.save(create_By=request.user)
-                
+
+                # Add many-to-many relationships
+                plan_instance.assign_team.set(assign_teams)
+
+                # Save blocks
                 for block in blocks:
                     block.practice_plan = plan_instance
                     block.save()
 
-                return Response({
+                # Prepare response data
+                response_data = {
                     "status": "success",
                     "message": "Plan created successfully",
                     "data": {
                         "id": plan_instance.id,
+                        "create_By": plan_instance.create_By.id,
                         "plan_title": plan_instance.plan_title,
                         "start_practice_time": plan_instance.start_practice_time.strftime("%Y-%m-%d %H:%M:%S") if plan_instance.start_practice_time else None,
                         "end_practice_time": plan_instance.end_practice_time.strftime("%Y-%m-%d %H:%M:%S") if plan_instance.end_practice_time else None,
                         "created_at": plan_instance.created_at.strftime("%Y-%m-%d %H:%M:%S"),
                         "updated_at": plan_instance.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
+                        "assign_team": list(plan_instance.assign_team.values_list('id', flat=True))
                     }
-                }, status=status.HTTP_201_CREATED)
+                }
+
+                return Response(response_data, status=status.HTTP_201_CREATED)
 
             return Response({
                 "status": "error",
@@ -376,8 +386,9 @@ class PlanViewSet(viewsets.ModelViewSet):
         try:
             partial = kwargs.pop('partial', False)
             instance = self.get_object()
-            serializer = self.get_serializer(instance, data=request.data, partial=partial)
-            
+            serializer = self.get_serializer(
+                instance, data=request.data, partial=partial)
+
             if serializer.is_valid():
                 blocks = serializer.validated_data.get('Plan_Block', [])
                 for block in blocks:
@@ -388,13 +399,15 @@ class PlanViewSet(viewsets.ModelViewSet):
                         }, status=status.HTTP_403_FORBIDDEN)
 
                 serializer.save()
-                
+
                 return Response({
                     "status": "success",
                     "message": "Plan updated successfully",
                     "data": {
                         "id": instance.id,
                         "plan_title": instance.plan_title,
+                        "create_By": instance.create_By.id,
+                        "assign_team": instance.assign_team.id,
                         "start_practice_time": instance.start_practice_time.strftime("%Y-%m-%d %H:%M:%S") if instance.start_practice_time else None,
                         "end_practice_time": instance.end_practice_time.strftime("%Y-%m-%d %H:%M:%S") if instance.end_practice_time else None,
                         "created_at": instance.created_at.strftime("%Y-%m-%d %H:%M:%S"),

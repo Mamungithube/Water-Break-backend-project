@@ -5,7 +5,7 @@ from .models import Drill, Block, plan, Notification, Reminder
 
 @admin.register(Drill)
 class DrillAdmin(ModelAdmin):
-    list_display = ["name","id", "get_assign_teams", "category", "create_By", "date_created"]
+    list_display = ["name", "id", "get_assign_teams", "assistant_coach", "category", "create_By", "date_created"]  # ✅ CHANGE - assistant_coach added
     list_filter = ["category", "date_created"]
     search_fields = ["name", "category", "description"]
     
@@ -18,9 +18,19 @@ class DrillAdmin(ModelAdmin):
                 "description",
             )
         }),
+        # ✅ NEW FIELDSET - নতুন fields এর জন্য
+        ("Team Assignment", {
+            "fields": (
+                "assigned_members",
+                "assistant_coach",
+            )
+        }),
     )
     
     readonly_fields = ["create_By", "date_created", "date_modified"]
+    
+    # ✅ NEW - ManyToMany field এর জন্য filter_horizontal
+    filter_horizontal = ['assign_team', 'assigned_members']
     
     def save_model(self, request, obj, form, change):
         """Automatically set create_By to current logged-in user"""
@@ -30,7 +40,7 @@ class DrillAdmin(ModelAdmin):
     
     def get_readonly_fields(self, request, obj=None):
         """Edit করার সময় create_By field readonly থাকবে"""
-        if obj:  # editing existing object
+        if obj:
             return self.readonly_fields + ["create_By"]
         return self.readonly_fields
 
@@ -41,7 +51,7 @@ class DrillAdmin(ModelAdmin):
 
 @admin.register(Block)
 class BlockAdmin(ModelAdmin):
-    list_display = ["title","id", "drill", "practice_plan", "start_time", "end_time", "created_at"]
+    list_display = ["title", "id", "drill", "practice_plan", "start_time", "end_time", "created_at"]
     list_filter = ["drill", "practice_plan", "start_time"]
     search_fields = ["title", "drill__name"]
     
@@ -67,7 +77,7 @@ class BlockAdmin(ModelAdmin):
 
 @admin.register(plan)
 class PlanAdmin(ModelAdmin):
-    list_display = ["id", "plan_title", "create_By", "get_plan_blocks", "start_practice_time", "end_practice_time", "created_at"] 
+    list_display = ["id", "get_teams", "plan_title", "create_By", "get_plan_blocks", "start_practice_time", "end_practice_time", "created_at"] 
     list_filter = ["start_practice_time", "created_at"]
     search_fields = ["plan_title", "create_By__username"]
     
@@ -99,13 +109,20 @@ class PlanAdmin(ModelAdmin):
         if obj:
             return self.readonly_fields + ["create_By"]
         return self.readonly_fields
-
+    
     def get_plan_blocks(self, obj):
         blocks = obj.Plan_Block.all()
         if blocks.exists():
             return ", ".join([b.title for b in blocks])
         return "No blocks"
     get_plan_blocks.short_description = "Blocks"
+    
+    def get_teams(self, obj):
+        if hasattr(obj.assign_team, 'all'):
+            return ", ".join([team.name for team in obj.assign_team.all()])
+        return obj.assign_team.name if obj.assign_team else "No Team"
+    
+    get_teams.short_description = "Assigned Team"
 
 
 @admin.register(Notification)

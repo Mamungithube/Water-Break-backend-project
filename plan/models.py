@@ -14,6 +14,20 @@ class Drill(models.Model):
     create_By = models.ForeignKey('account.User', on_delete=models.CASCADE)
     assign_team = models.ManyToManyField("teamapp.Team" , blank=True, related_name='drills')
     name = models.CharField(max_length=50)
+    assigned_members = models.ManyToManyField(
+        'account.User', 
+        blank=True, 
+        related_name='assigned_drills',
+        help_text="Sub-team members who can VIEW this drill"
+    )
+    assistant_coach = models.ForeignKey(
+        'account.User', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='assisted_drills',
+        help_text="Assistant coach who can MANAGE this drill"
+    )
     category = models.TextField(max_length=100)
     description = models.TextField(max_length=250)
     date_created = models.DateTimeField(auto_now_add=True)
@@ -25,6 +39,7 @@ class Drill(models.Model):
 
 class plan(models.Model):
     create_By = models.ForeignKey('account.User', on_delete=models.CASCADE)
+    assign_team = models.ManyToManyField("teamapp.Team" , blank=True, related_name='Teams')
     plan_title = models.CharField(max_length=100)
     start_practice_time = models.DateTimeField(null=True, blank=True)
     end_practice_time = models.DateTimeField(null=True, blank=True)
@@ -47,7 +62,7 @@ class Block(models.Model):
 
     def __str__(self):
         return f"{self.drill.name} - {self.title}"
-
+    
 
 class Notification(models.Model):
     """Simple in-app notification stored for a user."""
@@ -97,15 +112,21 @@ def schedule_reminders_for_object(obj, send_at=None, offset_minutes=None):
     users = set()
 
     if isinstance(obj, Drill):
-        for team in obj.assign_team.all():
-            for user in team.members.all():
-                users.add(user)
+        for member in obj.assigned_members.all():
+            users.add(member)
+        
+        if obj.assistant_coach:
+            users.add(obj.assistant_coach)
 
     elif isinstance(obj, Block):
         drill = obj.drill
-        for team in drill.assign_team.all():
-            for user in team.members.all():
-                users.add(user)
+        if drill:
+            for member in drill.assigned_members.all():
+                users.add(member)
+            
+            if drill.assistant_coach:
+                users.add(drill.assistant_coach)
+        
         if send_at is None:
             # Use practice_plan date if available, otherwise use tomorrow
             if obj.practice_plan and obj.practice_plan.start_practice_time:
@@ -122,11 +143,16 @@ def schedule_reminders_for_object(obj, send_at=None, offset_minutes=None):
             send_at = start_dt - timedelta(minutes=offset_minutes)
 
     elif isinstance(obj, plan):
+        # ✅ CHANGE - Plan এর সব blocks এর drill এর assigned_members এবং assistant_coach
         for block in obj.Plan_Block.all():
             drill = block.drill
-            for team in drill.assign_team.all():
-                for user in team.members.all():
-                    users.add(user)
+            if drill:
+                for member in drill.assigned_members.all():
+                    users.add(member)
+                
+                if drill.assistant_coach:
+                    users.add(drill.assistant_coach)
+        
         if send_at is None and obj.start_practice_time:
             send_at = obj.start_practice_time - timedelta(minutes=offset_minutes)
 
@@ -147,9 +173,19 @@ def schedule_reminders_for_object(obj, send_at=None, offset_minutes=None):
         )
 
 
+
 @receiver(post_save, sender=Drill)
 def create_drill_reminders(sender, instance, created, **kwargs):
     if created:
+        send_at = timezone.now()
+        schedule_reminders_for_object(instance, send_at=send_at)
+
+
+# ✅ NEW SIGNAL - যখন drill এ assigned_members change হবে
+@receiver(m2m_changed, sender=Drill.assigned_members.through)
+def drill_assigned_members_changed(sender, instance, action, pk_set, **kwargs):
+    """When assigned_members are added to a drill, send reminders"""
+    if action == 'post_add' and pk_set:
         send_at = timezone.now()
         schedule_reminders_for_object(instance, send_at=send_at)
 
