@@ -285,17 +285,20 @@ class PlanViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(create_By=user)
             else:  # assistant
                 # Assistant তার assigned drills এর plans দেখতে পারবে
-                queryset = queryset.filter(Plan_Block__drill__assistant_coach=user).distinct()
+                queryset = queryset.filter(
+                    Plan_Block__drill__assistant_coach=user).distinct()
         else:
             # Regular members তাদের assigned drills এর plans দেখতে পারবে
-            queryset = queryset.filter(Plan_Block__drill__assigned_members=user).distinct()
+            queryset = queryset.filter(
+                Plan_Block__drill__assigned_members=user).distinct()
 
         # Apply date filtering if provided
         date_param = self.request.query_params.get('date', None)
         if date_param:
             try:
                 filter_date = datetime.strptime(date_param, '%Y-%m-%d').date()
-                queryset = queryset.filter(start_practice_time__date=filter_date)
+                queryset = queryset.filter(
+                    start_practice_time__date=filter_date)
             except ValueError:
                 pass
 
@@ -407,7 +410,7 @@ class PlanViewSet(viewsets.ModelViewSet):
                         "id": instance.id,
                         "plan_title": instance.plan_title,
                         "create_By": instance.create_By.id,
-                        "assign_team": instance.assign_team.id,
+                        "assign_team": list(instance.assign_team.values_list('id', flat=True)),
                         "start_practice_time": instance.start_practice_time.strftime("%Y-%m-%d %H:%M:%S") if instance.start_practice_time else None,
                         "end_practice_time": instance.end_practice_time.strftime("%Y-%m-%d %H:%M:%S") if instance.end_practice_time else None,
                         "created_at": instance.created_at.strftime("%Y-%m-%d %H:%M:%S"),
@@ -415,11 +418,11 @@ class PlanViewSet(viewsets.ModelViewSet):
                     }
                 }, status=status.HTTP_200_OK)
 
-            return Response({
-                "status": "error",
-                "message": "Update failed",
-                "errors": serializer.errors
-            }, status=status.HTTP_400_BAD_REQUEST)
+                return Response({
+                    "status": "error",
+                    "message": "Update failed",
+                    "errors": serializer.errors
+                }, status=status.HTTP_400_BAD_REQUEST)
 
         except Http404:
             return Response({
@@ -454,3 +457,4 @@ class PlanViewSet(viewsets.ModelViewSet):
                 "message": "Failed to delete plan",
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
