@@ -8,7 +8,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .permissions import IsCoachOrAssistant
 from datetime import datetime
-
+from django.db.models import Q
+from rest_framework.decorators import action
 
 class DrillViewSet(viewsets.ModelViewSet):
     queryset = Drill.objects.all()
@@ -17,16 +18,55 @@ class DrillViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        params = self.request.query_params
 
-        if user.role in ['coach', 'assistant']:
-            # ✅ CHANGE - Coach তার নিজের drills এবং assistant তার assigned drills
-            if user.role == 'coach':
-                return Drill.objects.filter(create_By=user)
-            else:  # assistant
-                return Drill.objects.filter(assistant_coach=user) | Drill.objects.filter(create_By=user)
+        queryset = Drill.objects.all()
+
+        # 🔐 Role based visibility
+        if user.role == 'coach':
+            queryset = queryset.filter(create_By=user)
+
+        elif user.role == 'assistant':
+            queryset = queryset.filter(
+                Q(assistant_coach=user) | Q(create_By=user)
+            ).distinct()
+
         else:
-            # ✅ CHANGE - Regular members তাদের assigned drills দেখতে পারবে
-            return Drill.objects.filter(assigned_members=user).distinct()
+            queryset = queryset.filter(assigned_members=user).distinct()
+
+        # 🔍 Filters start here
+
+        if params.get('id'):
+            queryset = queryset.filter(id=params.get('id'))
+
+        if params.get('create_By'):
+            queryset = queryset.filter(create_By_id=params.get('create_By'))
+
+        if params.get('assistant_coach'):
+            queryset = queryset.filter(assistant_coach_id=params.get('assistant_coach'))
+
+        if params.get('assign_team'):
+            queryset = queryset.filter(assign_team__id=params.get('assign_team'))
+
+        if params.get('assigned_members'):
+            queryset = queryset.filter(assigned_members__id=params.get('assigned_members'))
+
+        if params.get('name'):
+            queryset = queryset.filter(name__icontains=params.get('name'))
+
+        if params.get('category'):
+            queryset = queryset.filter(category__icontains=params.get('category'))
+
+        if params.get('description'):
+            queryset = queryset.filter(description__icontains=params.get('description'))
+
+        if params.get('date_created'):
+            queryset = queryset.filter(date_created__date=params.get('date_created'))
+
+        if params.get('date_modified'):
+            queryset = queryset.filter(date_modified__date=params.get('date_modified'))
+
+        return queryset.distinct()
 
     def perform_create(self, serializer):
         serializer.save(create_By=self.request.user)
@@ -458,3 +498,20 @@ class PlanViewSet(viewsets.ModelViewSet):
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
+    @action(detail=True, methods=['get'])
+    def available_members(self, request, pk=None):
+        plan_obj = self.get_object()
+        serializer = planSerializer(plan_obj, context={'request': request})
+        return Response({
+            "status": "success",
+            "available_members": serializer.data.get('available_members', [])
+        })
+    
+    @action(detail=True, methods=['get'])
+    def available_assistants(self, request, pk=None):
+        plan_obj = self.get_object()
+        serializer = planSerializer(plan_obj, context={'request': request})
+        return Response({
+            "status": "success",
+            "available_assistants": serializer.data.get('available_assistants', [])
+        })

@@ -6,7 +6,7 @@ from rest_framework.decorators import action
 from django.http import Http404
 from django.utils import timezone
 from datetime import timedelta
-from .models import TeamMember, InvitationToken , Team
+from .models import TeamMember, InvitationToken, Team
 from .serializers import TeamMemberSerializer, InvitationTokenSerializer, JoinTeamSerializer, teamserializers
 from django.core.mail import send_mail
 from django.conf import settings
@@ -115,7 +115,6 @@ class teamviewset(viewsets.ModelViewSet):
             f"{team_member.team.name} as {team_member.get_role_display()}."
         )
 
-
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             f"user_{coach.id}",
@@ -134,7 +133,6 @@ class teamviewset(viewsets.ModelViewSet):
                 }
             }
         )
-
 
         send_mail(
             subject="New Team Join Request",
@@ -168,8 +166,10 @@ class teamviewset(viewsets.ModelViewSet):
             return Response({"detail": "Only the team coach can view pending members."}, status=status.HTTP_403_FORBIDDEN)
 
         try:
-            pending_qs = TeamMember.objects.filter(team=team, is_role_approved=False)
-            serializer = TeamMemberSerializer(pending_qs, many=True, context={"request": request})
+            pending_qs = TeamMember.objects.filter(
+                team=team, is_role_approved=False)
+            serializer = TeamMemberSerializer(
+                pending_qs, many=True, context={"request": request})
             return Response({"count": pending_qs.count(), "pending_members": serializer.data}, status=status.HTTP_200_OK)
         except Exception as exc:
             return Response({"detail": "Failed to fetch pending members.", "error": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -185,17 +185,39 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        team_id = self.request.query_params.get('team_id')
-
+        params = self.request.query_params
+    
+        team_id = params.get('team')
+        team_name = params.get('team_name')
+        role = params.get('role')
+        team_position = params.get('team_position')
+        is_role_approved = params.get('is_role_approved')
+    
+        # Base queryset
         if user.role == 'coach':
-            if team_id:
-                return TeamMember.objects.filter(team_id=team_id, team__coach=user)
-
-            return TeamMember.objects.filter(team__coach=user)
-
-        queryset = TeamMember.objects.filter(is_role_approved=True)
+            queryset = TeamMember.objects.filter(team__coach=user)
+        else:
+            queryset = TeamMember.objects.filter(is_role_approved=True)
+    
+        # 🔍 Filters
         if team_id:
             queryset = queryset.filter(team_id=team_id)
+    
+        if team_name:
+            queryset = queryset.filter(team__name__icontains=team_name)
+    
+        if role:
+            queryset = queryset.filter(role=role)
+    
+        if team_position:
+            queryset = queryset.filter(team_position__icontains=team_position)
+    
+        if is_role_approved is not None:
+            if is_role_approved.lower() == 'true':
+                queryset = queryset.filter(is_role_approved=True)
+            elif is_role_approved.lower() == 'false':
+                queryset = queryset.filter(is_role_approved=False)
+    
         return queryset
 
     @action(detail=True, methods=['post'])
@@ -207,13 +229,13 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
 
         if request.user != membership.team.coach:
             return Response(
-                {"detail": f"You are not the coach of team '{membership.team.name}'."}, 
+                {"detail": f"You are not the coach of team '{membership.team.name}'."},
                 status=status.HTTP_403_FORBIDDEN
             )
 
         if membership.is_role_approved:
             return Response(
-                {"detail": f"Member already approved in team '{membership.team.name}'."}, 
+                {"detail": f"Member already approved in team '{membership.team.name}'."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -221,7 +243,7 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
         membership.save()
 
         return Response(
-            {"detail": f"Approved for team '{membership.team.name}' successfully."}, 
+            {"detail": f"Approved for team '{membership.team.name}' successfully."},
             status=status.HTTP_200_OK
         )
 
@@ -235,20 +257,22 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
                 {"detail": "Only coach can reject members."},
                 status=status.HTTP_403_FORBIDDEN
             )
-    
+
         # Reject/delete the membership targeted by this detail route
         membership = membership_obj
         if membership.is_role_approved:
             return Response({"detail": "Cannot reject an already approved member."}, status=status.HTTP_400_BAD_REQUEST)
 
         membership.delete()
-    
+
         return Response(
             {"detail": "Join request rejected."},
             status=status.HTTP_200_OK
         )
 
+
 """================================Invitation Token ViewSet=================================="""
+
 
 class InvitationTokenViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = InvitationToken.objects.all()

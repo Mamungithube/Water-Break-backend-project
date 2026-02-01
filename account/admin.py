@@ -3,7 +3,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import Group
 from unfold.admin import ModelAdmin
-from .models import User, Profile, Subscription
+from .models import User, Profile
 from unfold.forms import UserChangeForm, UserCreationForm
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 
@@ -57,25 +57,6 @@ class ProfileAdmin(ModelAdmin):
     user_email.short_description = 'User Email'
 
     
-
-""" ========================= Subscription Admin ========================= """
-
-@admin.register(Subscription)
-class SubscriptionAdmin(ModelAdmin):
-    list_display = ('user_email', 'is_active', 'start_date', 'end_date')
-    search_fields = ('user__email', 'user__Fullname')
-    list_filter = ('is_active',)
-    date_hierarchy = 'start_date'
-    
-    def user_email(self, obj):
-        return obj.user.email
-    user_email.short_description = 'User Email'
-    
-    @admin.action(description='Activate selected subscriptions')
-    def activate_subscription(self, request, queryset):
-        queryset.update(is_active=True)
-
-    actions = [activate_subscription]
 
 
 

@@ -1,3 +1,4 @@
+from requests import Response
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
@@ -5,16 +6,17 @@ from teamapp.models import Team,TeamMember
 from .models import Drill, Block, plan
 from account.serializers import UserSerializer
 
+
 User = get_user_model()  # ✅ Import User model
 
 
 class DrillSerializer(serializers.ModelSerializer):
     create_By = UserSerializer(read_only=True)
     
-    # ✅ BEST FIX - সরাসরি User.objects.all() দিয়ে দিন
+
     assigned_members = serializers.PrimaryKeyRelatedField(
         many=True,
-        queryset=User.objects.all(),  # ✅ Direct queryset
+        queryset=User.objects.all(),  #  Direct queryset
         required=False,
         allow_empty=True
     )
@@ -254,18 +256,17 @@ class planSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at', 'create_By']
-
+    
     def get_available_members(self, obj):
         """TeamMember মডেল থেকে শুধুমাত্র 'player' রোল এর মেম্বারদের ফিল্টার করা"""
-        # এই প্ল্যানে যে টিমগুলো যুক্ত আছে তাদের আইডি লিস্ট
+
         team_ids = obj.assign_team.values_list('id', flat=True)
         
-        # TeamMember মডেল থেকে প্লেয়ারদের কুয়েরি করা (যারা team_ids এর অন্তর্ভুক্ত)
-        # আপনি চাইলে এখানে .filter(is_role_approved=True) যোগ করতে পারেন
+   
         memberships = TeamMember.objects.filter(
             team_id__in=team_ids,
             role='player'
-        ).select_related('member') # পারফরম্যান্স ভালো করার জন্য select_related
+        ).select_related('member') 
 
         members_list = []
         for entry in memberships:
@@ -275,15 +276,14 @@ class planSerializer(serializers.ModelSerializer):
                 'first_name': entry.member.first_name,
                 'last_name': entry.member.last_name,
                 'role': entry.role,
-                'position': entry.team_position # TeamMember থেকে পজিশনও নিতে পারছেন
+                'position': entry.team_position
             })
         
-        # ডুপ্লিকেট রিমুভ (যদি এক প্লেয়ার দুই টিমে থাকে)
         unique_members = {m['id']: m for m in members_list}
         return list(unique_members.values())
     
     def get_available_assistants(self, obj):
-        """TeamMember মডেল থেকে শুধুমাত্র 'assistant' রোল এর মেম্বারদের ফিল্টার করা"""
+     
         team_ids = obj.assign_team.values_list('id', flat=True)
         
         assistants = TeamMember.objects.filter(
@@ -313,3 +313,4 @@ class planSerializer(serializers.ModelSerializer):
                 block.practice_plan = instance
                 block.save()
         return instance
+    
