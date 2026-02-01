@@ -18,6 +18,8 @@ from django.contrib import admin
 from django.urls import include, path
 from django.conf import settings
 from django.conf.urls.static import static
+from drf_spectacular.views import SpectacularSwaggerView , SpectacularAPIView
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -26,6 +28,11 @@ urlpatterns = [
     path('api/team/', include('teamapp.urls')),
     path('api/chat/', include('chat_system.urls')),
     path('api/service/', include('service.urls')),
+
+
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+
 
 ]
 if settings.DEBUG:

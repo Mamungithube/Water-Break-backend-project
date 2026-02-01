@@ -47,7 +47,6 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_SAVE_EVERY_REQUEST = True
 
 
-
 ALLOWED_HOSTS = [
     '*',
     '74.208.158.27',
@@ -66,7 +65,7 @@ AUTH_USER_MODEL = 'account.User'
 INSTALLED_APPS = [
     'daphne',
     "unfold",
-    "unfold.contrib.filters", 
+    "unfold.contrib.filters",
     "unfold.contrib.forms",
 
     'django.contrib.admin',
@@ -81,6 +80,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
+    'drf_spectacular',
     'channels',
 
     # Local apps
@@ -113,6 +113,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
     "DATETIME_FORMAT": "%Y-%m-%d %H:%M:%S",
@@ -173,96 +174,143 @@ UNFOLD = {
         },
     },
     "USER_AVATAR": "avatar",
-    "USER_STR_FUNC": "get_full_name", 
+    "USER_STR_FUNC": "get_full_name",
 
-    # "SIDEBAR": {
-    #     "show_search": True,
-    #     "navigation": [
-    #         {
-    #             "title": "USER MANAGEMENT",
-    #             "separator": True,
-    #             "items": [
-    #                 {
-    #                     "title": "Users",
-    #                     "link": "/admin/account/user/", 
-    #                     "icon": "manage_accounts",
-    #                 },
-    #                 {
-    #                     "title": "Profiles",
-    #                     "link": "/admin/account/profile/",
-    #                     "icon": "person", 
-    #                 },
-    #                 {
-    #                     "title": "Invitation tokens",
-    #                     "link": "/admin/teamapp/invitationtoken/", 
-    #                     "icon": "vpn_key",
-    #                 },
-    #                 {
-    #                     "title": "Subscriptions",
-    #                     "link": "/admin/account/subscription/", 
-    #                     "icon": "card_membership",
-    #                 },
-    #                 {
-    #                     "title": "Team members",
-    #                     "link": "/admin/teamapp/teammember/", 
-    #                     "icon": "groups",
-    #                 },
-    #                 {
-    #                     "title": "All Teams",
-    #                     "link": "/admin/teamapp/team/", 
-    #                     "icon": "group",
-    #                 },
-    #             ],
-    #         },
-    #         {
-    #             "title": "PRACTICE PLAN",
-    #             "separator": True,
-    #             "items": [
-    #                 {
-    #                     "title": "Plans",
-    #                     "link": "/admin/plan/plan/",
-    #                     "icon": "format_list_bulleted", 
-    #                 },
-    #                 {
-    #                     "title": "Drills",
-    #                     "link": "/admin/plan/drill/",
-    #                     "icon": "category", 
-    #                 },
-    #                 {
-    #                     "title": "Blocks",
-    #                     "link": "/admin/plan/block/",
-    #                     "icon": "grid_view",
-    #                 },
-    #             ],
-    #         },
-    #         {
-    #             "title": "SERVICE & CONTENT",
-    #             "separator": True,
-    #             "items": [
-    #                 {
-    #                     "title": "About Us",
-    #                     "link": "/admin/service/aboutus/",
-    #                     "icon": "info",
-    #                 },
-    #                 # {
-    #                 #     "title": "FAQs",
-    #                 #     "link": "/admin/service/faq/",
-    #                 #     "icon": "quiz",
-    #                 # },
-    #                 {
-    #                     "title": "Terms & Conditions",
-    #                     "link": "/admin/service/termsandconditions/",
-    #                     "icon": "gavel",
-    #                 },
-    #                 {
-    #                     "title": "Privacy Policy",
-    #                     "link": "/admin/service/privacy_policy/",
-    #                     "icon": "policy",
-    #                 },
-    #             ],
-    #         },
-    #     ],
-    # },
+    "SIDEBAR": {
+        "show_search": True,
+        "navigation": [
+            {
+                "title": "USER MANAGEMENT",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Users",
+                        "link": "/admin/account/user/",
+                        "icon": "manage_accounts",
+                    },
+                    {
+                        "title": "Profiles",
+                        "link": "/admin/account/profile/",
+                        "icon": "person",
+                    },
+                    {
+                        "title": "Notifications",
+                        "link": "/admin/account/notification/",
+                        "icon": "notifications",
+                    },
+                    {
+                        "title": "Invitation tokens",
+                        "link": "/admin/teamapp/invitationtoken/",
+                        "icon": "vpn_key",
+                    },
+                    {
+                        "title": "Subscriptions",
+                        "link": "/admin/subscription/subscription/",
+                        "icon": "card_membership",
+                    },
+                    {
+                        "title": "Team members",
+                        "link": "/admin/teamapp/teammember/",
+                        "icon": "groups",
+                    },
+                    {
+                        "title": "Teams",
+                        "link": "/admin/teamapp/team/",
+                        "icon": "group",
+                    },
+                ],
+            },
+            {
+                "title": "PRACTICE PLAN",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Plans",
+                        "link": "/admin/plan/plan/",
+                        "icon": "format_list_bulleted",
+                    },
+                    {
+                        "title": "Drills",
+                        "link": "/admin/plan/drill/",
+                        "icon": "category",
+                    },
+                    {
+                        "title": "Blocks",
+                        "link": "/admin/plan/block/",
+                        "icon": "grid_view",
+                    },
+                    {
+                        "title": "Reminders",
+                        "link": "/admin/plan/reminder/",
+                        "icon": "notifications_active",
+                    },
+                ],
+            },
+            {
+                "title": "CHAT SYSTEM",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Team chat messages",
+                        "link": "/admin/chat_system/teamchatmessage/",
+                        "icon": "chat",
+                    },
+                ],
+            },
+            {
+                "title": "PERIODIC TASKS",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Periodic tasks",
+                        "link": "/admin/django_celery_beat/periodictask/",
+                        "icon": "schedule",
+                    },
+                    {
+                        "title": "Crontabs",
+                        "link": "/admin/django_celery_beat/crontabschedule/",
+                        "icon": "schedule",
+                    },
+                    {
+                        "title": "Intervals",
+                        "link": "/admin/django_celery_beat/intervalschedule/",
+                        "icon": "schedule",
+                    },
+                    {
+                        "title": "Clocked",
+                        "link": "/admin/django_celery_beat/clockedschedule/",
+                        "icon": "schedule",
+                    },
+                    {
+                        "title": "Solar events",
+                        "link": "/admin/django_celery_beat/solarschedule/",
+                        "icon": "schedule",
+                    },
+                ],
+            },
+            {
+                "title": "SERVICE & CONTENT",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "About Us",
+                        "link": "/admin/service/aboutus/",
+                        "icon": "info",
+                    },
+                    {
+                        "title": "Privacy Policy",
+                        "link": "/admin/service/privacy_policy/",
+                        "icon": "policy",
+                    },
+                    {
+                        "title": "Terms and Conditions",
+                        "link": "/admin/service/termsandconditions/",
+                        "icon": "gavel",
+                    },
+                ],
+            },
+        ],
+    },
 }
 
 ASGI_APPLICATION = 'water_break.asgi.application'
@@ -275,11 +323,12 @@ CHANNEL_LAYERS = {
 
 # Celery configuration
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0')
-CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/1')
+CELERY_RESULT_BACKEND = os.getenv(
+    'CELERY_RESULT_BACKEND', 'redis://redis:6379/1')
 CELERY_BEAT_SCHEDULE = {
     'send-reminders-periodically': {
-        'task': 'plan.tasks.send_due_reminders_task', 
-        'schedule': 300.0, 
+        'task': 'plan.tasks.send_due_reminders_task',
+        'schedule': 300.0,
     },
 }
 
@@ -294,7 +343,7 @@ CELERY_BEAT_SCHEDULE = {
 #     }
 # }
 
-DATABASES= {
+DATABASES = {
     'default': {
         'ENGINE': os.getenv('ENGINE'),
         'NAME': os.getenv('NAME'),
@@ -308,7 +357,7 @@ DATABASES= {
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
-AUTH_PASSWORD_VALIDATORS= [
+AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
     },
@@ -327,43 +376,43 @@ AUTH_PASSWORD_VALIDATORS= [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE= 'en-us'
+LANGUAGE_CODE = 'en-us'
 
 # TIME_ZONE= 'UTC'
 
-TIME_ZONE= 'Asia/Dhaka'
+TIME_ZONE = 'Asia/Dhaka'
 
-USE_I18N= True
+USE_I18N = True
 
-USE_TZ= True
+USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL= '/static/'
+STATIC_URL = '/static/'
 # STATICFILES_DIRS = [
 #     BASE_DIR / "static",
 # ]
-STATIC_ROOT= BASE_DIR / 'staticfiles'
-MEDIA_URL= '/media/'
-MEDIA_ROOT= os.path.join(BASE_DIR, 'media')
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
-DEFAULT_AUTO_FIELD= os.getenv('DEFAULT_AUTO_FIELD')
+DEFAULT_AUTO_FIELD = os.getenv('DEFAULT_AUTO_FIELD')
 
 
-EMAIL_BACKEND= os.getenv('EMAIL_BACKEND')
-EMAIL_HOST= os.getenv('EMAIL_HOST')
-EMAIL_USE_TLS= os.getenv('EMAIL_USE_TLS') == 'True'
-EMAIL_PORT= os.getenv('EMAIL_PORT')
-EMAIL_HOST_USER= os.getenv('EMAIL_HOST_USER')
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND')
+EMAIL_HOST = os.getenv('EMAIL_HOST')
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS') == 'True'
+EMAIL_PORT = os.getenv('EMAIL_PORT')
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 
-EMAIL_HOST_PASSWORD= os.getenv('EMAIL_HOST_PASSWORD')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 
 
-GOOGLE_OAUTH2_CLIENT_ID= os.getenv('GOOGLE_OAUTH2_CLIENT_ID')
-GOOGLE_OAUTH2_CLIENT_SECRET= os.getenv('GOOGLE_OAUTH2_CLIENT_SECRET')
-GOOGLE_OAUTH2_REDIRECT_URI= os.getenv('GOOGLE_OAUTH2_REDIRECT_URI')
+GOOGLE_OAUTH2_CLIENT_ID = os.getenv('GOOGLE_OAUTH2_CLIENT_ID')
+GOOGLE_OAUTH2_CLIENT_SECRET = os.getenv('GOOGLE_OAUTH2_CLIENT_SECRET')
+GOOGLE_OAUTH2_REDIRECT_URI = os.getenv('GOOGLE_OAUTH2_REDIRECT_URI')
