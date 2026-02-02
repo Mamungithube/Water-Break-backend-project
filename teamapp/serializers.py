@@ -1,4 +1,6 @@
 from rest_framework import serializers
+
+from account.models import Profile
 from .models import TeamMember, InvitationToken , Team
 from django.contrib.auth import get_user_model
 User = get_user_model()
@@ -65,6 +67,7 @@ class teamserializers(serializers.ModelSerializer):
 class TeamMemberSerializer(serializers.ModelSerializer):
     member_email = serializers.EmailField(source='member.email', read_only=True)
     member_name = serializers.SerializerMethodField()
+    member_profile_picture = serializers.SerializerMethodField()
     role_display = serializers.CharField(source='get_role_display', read_only=True)
     team_name = serializers.CharField(source='team.name', read_only=True)
 
@@ -72,7 +75,7 @@ class TeamMemberSerializer(serializers.ModelSerializer):
         model = TeamMember
         fields = [
             'id', 'team_position', 'team', 'team_name', 'member', 'member_email', 'member_name',
-            'role', 'role_display', 'is_role_approved', 'joined_at'
+            'member_profile_picture', 'role', 'role_display', 'is_role_approved', 'joined_at'
         ]
         read_only_fields = ['is_role_approved', 'joined_at', 'member_email']
         
@@ -87,6 +90,20 @@ class TeamMemberSerializer(serializers.ModelSerializer):
                 }
             }
         }
+
+    def get_member_profile_picture(self, obj):
+        try:
+            # member (User) থেকে তার প্রোফাইলে যেতে হবে, তারপর পিকচার
+            if obj.member.profile and obj.member.profile.profile_picture:
+                request = self.context.get('request')
+                image_url = obj.member.profile.profile_picture.url
+                if request:
+                    return request.build_absolute_uri(image_url)
+                return image_url
+        except (AttributeError, Profile.DoesNotExist):
+            # যদি কোনো ইউজারের প্রোফাইল ক্রিয়েট করা না থাকে তবে এরর না দিয়ে None আসবে
+            return None
+        return None
 
     def get_member_name(self, obj):
         return f"{obj.member.first_name} {obj.member.last_name}".strip() or obj.member.email

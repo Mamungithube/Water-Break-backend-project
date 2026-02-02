@@ -28,6 +28,7 @@ urlpatterns = [
     path('api/team/', include('teamapp.urls')),
     path('api/chat/', include('chat_system.urls')),
     path('api/service/', include('service.urls')),
+    path('api/subscription/', include('subscription.urls')),
 
 
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

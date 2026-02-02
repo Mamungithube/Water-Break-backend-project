@@ -13,6 +13,7 @@ from django.conf import settings
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from account.models import Notification
+from django.db.models import Q
 
 # Create your views here.
 """=============================Team view set==========================================="""
@@ -179,46 +180,63 @@ class teamviewset(viewsets.ModelViewSet):
 
 
 class TeamMemberViewSet(viewsets.ModelViewSet):
-    queryset = TeamMember.objects.all()
+    # queryset = TeamMember.objects.all()
+    queryset = TeamMember.objects.select_related('member__profile', 'team').all()
     serializer_class = TeamMemberSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
         params = self.request.query_params
-    
-        team_id = params.get('team')
+        
+        # Performance optimization: select_related ব্যবহার করা হয়েছে
+        queryset = TeamMember.objects.select_related('member__profile', 'team').all()
+
+        # ১. বেস ফিল্টারিং (কে কতটুকু ডাটা দেখতে পারবে)
+        
+        # ইউজার যদি কোনো টিমে 'assistant' হয় (approved)
+        is_assistant_anywhere = TeamMember.objects.filter(
+            member=user, role='assistant', is_role_approved=True
+        ).exists()
+
+        if user.role == 'coach':
+            # কোচ তার নিজের টিমের সব মেম্বার দেখবে (approved + pending)
+            queryset = queryset.filter(team__coach=user)
+        elif is_assistant_anywhere:
+            # অ্যাসিস্ট্যান্ট তার নিজের টিমের মেম্বার এবং অন্যান্য অ্যাপ্রুভড মেম্বারদের দেখবে
+            # (লজিক আপনার প্রয়োজন অনুযায়ী ছোট-বড় করতে পারেন)
+            queryset = queryset.filter(
+                Q(team__memberships__member=user, team__memberships__role='assistant') | 
+                Q(is_role_approved=True)
+            ).distinct()
+        else:
+            # সাধারণ প্লেয়াররা শুধু অ্যাপ্রুভড মেম্বারদের দেখবে
+            queryset = queryset.filter(is_role_approved=True)
+
+        # ২. ডাইনামিক ফিল্টারিং (Query Params)
+        team_param = params.get('team')
         team_name = params.get('team_name')
         role = params.get('role')
         team_position = params.get('team_position')
         is_role_approved = params.get('is_role_approved')
-    
-        # Base queryset
-        if user.role == 'coach':
-            queryset = TeamMember.objects.filter(team__coach=user)
-        else:
-            queryset = TeamMember.objects.filter(is_role_approved=True)
-    
-        # 🔍 Filters
-        if team_id:
-            queryset = queryset.filter(team_id=team_id)
-    
+
+        if team_param:
+            team_ids = team_param.split(',')
+            queryset = queryset.filter(team_id__in=team_ids)
+
         if team_name:
             queryset = queryset.filter(team__name__icontains=team_name)
-    
+
         if role:
             queryset = queryset.filter(role=role)
-    
+
         if team_position:
             queryset = queryset.filter(team_position__icontains=team_position)
-    
+
         if is_role_approved is not None:
-            if is_role_approved.lower() == 'true':
-                queryset = queryset.filter(is_role_approved=True)
-            elif is_role_approved.lower() == 'false':
-                queryset = queryset.filter(is_role_approved=False)
-    
-        return queryset
+            queryset = queryset.filter(is_role_approved=is_role_approved.lower() == 'true')
+
+        return queryset.distinct()
 
     @action(detail=True, methods=['post'])
     def approve_member(self, request, pk=None):

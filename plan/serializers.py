@@ -3,6 +3,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
 from teamapp.models import Team,TeamMember
+from teamapp.serializers import TeamMemberSerializer
 from .models import Drill, Block, plan
 from account.serializers import UserSerializer
 
@@ -13,34 +14,66 @@ User = get_user_model()  # ✅ Import User model
 class DrillSerializer(serializers.ModelSerializer):
     create_By = UserSerializer(read_only=True)
     
-
-    assigned_members = serializers.PrimaryKeyRelatedField(
+    # ইনপুট নেওয়ার জন্য সব ইউজারকে এক ফিল্ডে গ্রহণ করব
+    assigned_users = serializers.PrimaryKeyRelatedField(
         many=True,
-        queryset=User.objects.all(),  #  Direct queryset
-        required=False,
-        allow_empty=True
-    )
-    assistant_coach = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.filter(role='assistant'),  # ✅ Filtered queryset
-        required=False,
-        allow_null=True
+        queryset=User.objects.all(),
+        write_only=True,  # এটি শুধু ডাটা সেভ করার সময় লাগবে
+        required=False
     )
     
+    # রেসপন্সে সাজানো ডাটা দেওয়ার জন্য MethodField
+    assigned_data = serializers.SerializerMethodField()
+
     class Meta:
         model = Drill
         fields = [
             'id', 'create_By', 'assign_team', 
-            'assigned_members', 'assistant_coach',
+            'assigned_users', 'assigned_data', # ইনপুট নিব users এ, আউটপুট দিব data তে
             'name', 'category', 'description', 
             'date_created', 'date_modified'
         ]
         read_only_fields = ['date_created', 'date_modified']
 
+    def get_assigned_data(self, obj):
+    # ড্রিলের সাথে সরাসরি যুক্ত মেম্বারদের আইডি নিন
+        assigned_user_ids = obj.assigned_members.values_list('id', flat=True)
+        
+        # টিম ফিল্টার বাদ দিয়ে সরাসরি মেম্বারশিপ থেকে ডাটা আনুন
+        # যাতে অন্তত ওই মেম্বারদের প্রোফাইল এবং নাম পাওয়া যায়
+        team_memberships = TeamMember.objects.filter(
+            member_id__in=assigned_user_ids
+        ).select_related('member', 'member__profile').distinct('member_id') 
+        # .distinct('member_id') দিলে একই ইউজার কয়েক টিমে থাকলেও একবারই আসবে
+    
+        return {
+            "players": TeamMemberSerializer(
+                team_memberships.filter(role='player'), 
+                many=True, 
+                context=self.context
+            ).data,
+            "assistant_coaches": TeamMemberSerializer(
+                team_memberships.filter(role='assistant'), 
+                many=True, 
+                context=self.context
+            ).data
+        }
+
     def create(self, validated_data):
+        # assigned_users ডাটা আলাদা করে নিয়ে মূল মডেল সেভ করার পর যুক্ত করতে হবে
+        assigned_users = validated_data.pop('assigned_users', [])
+        
         user = self.context['request'].user
         if user.is_authenticated:
             validated_data['create_By'] = user 
-        return super().create(validated_data)
+            
+        drill = super().create(validated_data)
+        
+        # মেম্বারদের ড্রিল-এ যুক্ত করা
+        if assigned_users:
+            drill.assigned_members.set(assigned_users)
+            
+        return drill
 
     def validate_assign_team(self, value):
         """Validate that coach can only assign their own teams"""

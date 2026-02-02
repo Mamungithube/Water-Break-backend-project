@@ -176,141 +176,141 @@ UNFOLD = {
     "USER_AVATAR": "avatar",
     "USER_STR_FUNC": "get_full_name",
 
-    "SIDEBAR": {
-        "show_search": True,
-        "navigation": [
-            {
-                "title": "USER MANAGEMENT",
-                "separator": True,
-                "items": [
-                    {
-                        "title": "Users",
-                        "link": "/admin/account/user/",
-                        "icon": "manage_accounts",
-                    },
-                    {
-                        "title": "Profiles",
-                        "link": "/admin/account/profile/",
-                        "icon": "person",
-                    },
-                    {
-                        "title": "Notifications",
-                        "link": "/admin/account/notification/",
-                        "icon": "notifications",
-                    },
-                    {
-                        "title": "Invitation tokens",
-                        "link": "/admin/teamapp/invitationtoken/",
-                        "icon": "vpn_key",
-                    },
-                    {
-                        "title": "Subscriptions",
-                        "link": "/admin/subscription/subscription/",
-                        "icon": "card_membership",
-                    },
-                    {
-                        "title": "Team members",
-                        "link": "/admin/teamapp/teammember/",
-                        "icon": "groups",
-                    },
-                    {
-                        "title": "Teams",
-                        "link": "/admin/teamapp/team/",
-                        "icon": "group",
-                    },
-                ],
-            },
-            {
-                "title": "PRACTICE PLAN",
-                "separator": True,
-                "items": [
-                    {
-                        "title": "Plans",
-                        "link": "/admin/plan/plan/",
-                        "icon": "format_list_bulleted",
-                    },
-                    {
-                        "title": "Drills",
-                        "link": "/admin/plan/drill/",
-                        "icon": "category",
-                    },
-                    {
-                        "title": "Blocks",
-                        "link": "/admin/plan/block/",
-                        "icon": "grid_view",
-                    },
-                    {
-                        "title": "Reminders",
-                        "link": "/admin/plan/reminder/",
-                        "icon": "notifications_active",
-                    },
-                ],
-            },
-            {
-                "title": "CHAT SYSTEM",
-                "separator": True,
-                "items": [
-                    {
-                        "title": "Team chat messages",
-                        "link": "/admin/chat_system/teamchatmessage/",
-                        "icon": "chat",
-                    },
-                ],
-            },
-            {
-                "title": "PERIODIC TASKS",
-                "separator": True,
-                "items": [
-                    {
-                        "title": "Periodic tasks",
-                        "link": "/admin/django_celery_beat/periodictask/",
-                        "icon": "schedule",
-                    },
-                    {
-                        "title": "Crontabs",
-                        "link": "/admin/django_celery_beat/crontabschedule/",
-                        "icon": "schedule",
-                    },
-                    {
-                        "title": "Intervals",
-                        "link": "/admin/django_celery_beat/intervalschedule/",
-                        "icon": "schedule",
-                    },
-                    {
-                        "title": "Clocked",
-                        "link": "/admin/django_celery_beat/clockedschedule/",
-                        "icon": "schedule",
-                    },
-                    {
-                        "title": "Solar events",
-                        "link": "/admin/django_celery_beat/solarschedule/",
-                        "icon": "schedule",
-                    },
-                ],
-            },
-            {
-                "title": "SERVICE & CONTENT",
-                "separator": True,
-                "items": [
-                    {
-                        "title": "About Us",
-                        "link": "/admin/service/aboutus/",
-                        "icon": "info",
-                    },
-                    {
-                        "title": "Privacy Policy",
-                        "link": "/admin/service/privacy_policy/",
-                        "icon": "policy",
-                    },
-                    {
-                        "title": "Terms and Conditions",
-                        "link": "/admin/service/termsandconditions/",
-                        "icon": "gavel",
-                    },
-                ],
-            },
-        ],
-    },
+    # "SIDEBAR": {
+    #     "show_search": True,
+    #     "navigation": [
+    #         {
+    #             "title": "USER MANAGEMENT",
+    #             "separator": True,
+    #             "items": [
+    #                 {
+    #                     "title": "Users",
+    #                     "link": "/admin/account/user/",
+    #                     "icon": "manage_accounts",
+    #                 },
+    #                 {
+    #                     "title": "Profiles",
+    #                     "link": "/admin/account/profile/",
+    #                     "icon": "person",
+    #                 },
+    #                 {
+    #                     "title": "Notifications",
+    #                     "link": "/admin/account/notification/",
+    #                     "icon": "notifications",
+    #                 },
+    #                 {
+    #                     "title": "Invitation tokens",
+    #                     "link": "/admin/teamapp/invitationtoken/",
+    #                     "icon": "vpn_key",
+    #                 },
+    #                 {
+    #                     "title": "Subscriptions",
+    #                     "link": "/admin/subscription/subscription/",
+    #                     "icon": "card_membership",
+    #                 },
+    #                 {
+    #                     "title": "Team members",
+    #                     "link": "/admin/teamapp/teammember/",
+    #                     "icon": "groups",
+    #                 },
+    #                 {
+    #                     "title": "Teams",
+    #                     "link": "/admin/teamapp/team/",
+    #                     "icon": "group",
+    #                 },
+    #             ],
+    #         },
+    #         {
+    #             "title": "PRACTICE PLAN",
+    #             "separator": True,
+    #             "items": [
+    #                 {
+    #                     "title": "Plans",
+    #                     "link": "/admin/plan/plan/",
+    #                     "icon": "format_list_bulleted",
+    #                 },
+    #                 {
+    #                     "title": "Drills",
+    #                     "link": "/admin/plan/drill/",
+    #                     "icon": "category",
+    #                 },
+    #                 {
+    #                     "title": "Blocks",
+    #                     "link": "/admin/plan/block/",
+    #                     "icon": "grid_view",
+    #                 },
+    #                 {
+    #                     "title": "Reminders",
+    #                     "link": "/admin/plan/reminder/",
+    #                     "icon": "notifications_active",
+    #                 },
+    #             ],
+    #         },
+    #         {
+    #             "title": "CHAT SYSTEM",
+    #             "separator": True,
+    #             "items": [
+    #                 {
+    #                     "title": "Team chat messages",
+    #                     "link": "/admin/chat_system/teamchatmessage/",
+    #                     "icon": "chat",
+    #                 },
+    #             ],
+    #         },
+    #         {
+    #             "title": "PERIODIC TASKS",
+    #             "separator": True,
+    #             "items": [
+    #                 {
+    #                     "title": "Periodic tasks",
+    #                     "link": "/admin/django_celery_beat/periodictask/",
+    #                     "icon": "schedule",
+    #                 },
+    #                 {
+    #                     "title": "Crontabs",
+    #                     "link": "/admin/django_celery_beat/crontabschedule/",
+    #                     "icon": "schedule",
+    #                 },
+    #                 {
+    #                     "title": "Intervals",
+    #                     "link": "/admin/django_celery_beat/intervalschedule/",
+    #                     "icon": "schedule",
+    #                 },
+    #                 {
+    #                     "title": "Clocked",
+    #                     "link": "/admin/django_celery_beat/clockedschedule/",
+    #                     "icon": "schedule",
+    #                 },
+    #                 {
+    #                     "title": "Solar events",
+    #                     "link": "/admin/django_celery_beat/solarschedule/",
+    #                     "icon": "schedule",
+    #                 },
+    #             ],
+    #         },
+    #         {
+    #             "title": "SERVICE & CONTENT",
+    #             "separator": True,
+    #             "items": [
+    #                 {
+    #                     "title": "About Us",
+    #                     "link": "/admin/service/aboutus/",
+    #                     "icon": "info",
+    #                 },
+    #                 {
+    #                     "title": "Privacy Policy",
+    #                     "link": "/admin/service/privacy_policy/",
+    #                     "icon": "policy",
+    #                 },
+    #                 {
+    #                     "title": "Terms and Conditions",
+    #                     "link": "/admin/service/termsandconditions/",
+    #                     "icon": "gavel",
+    #                 },
+    #             ],
+    #         },
+    #     ],
+    # },
 }
 
 ASGI_APPLICATION = 'water_break.asgi.application'
@@ -416,3 +416,8 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 GOOGLE_OAUTH2_CLIENT_ID = os.getenv('GOOGLE_OAUTH2_CLIENT_ID')
 GOOGLE_OAUTH2_CLIENT_SECRET = os.getenv('GOOGLE_OAUTH2_CLIENT_SECRET')
 GOOGLE_OAUTH2_REDIRECT_URI = os.getenv('GOOGLE_OAUTH2_REDIRECT_URI')
+
+
+# revinewcat credential 
+REVENUECAT_API_KEY = os.getenv('REVENUECAT_API_KEY')
+REVENUECAT_WEBHOOK_AUTH_HEADER = os.getenv('REVENUECAT_WEBHOOK_AUTH_HEADER')
