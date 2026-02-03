@@ -3,7 +3,7 @@ from django.db import models
 # Create your models here.
 
 
-class privacy_policy(models.Model):
+class Privacy_Policy(models.Model):
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -16,7 +16,7 @@ class privacy_policy(models.Model):
 
 
 
-class termsandconditions(models.Model):
+class TermsAndConditions(models.Model):
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -29,7 +29,7 @@ class termsandconditions(models.Model):
 
 
 
-class aboutus(models.Model):
+class AboutUs(models.Model):
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

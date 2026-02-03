@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.http import Http404
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework import status, viewsets
-from .models import Drill, Block, plan
+from .models import Drill, Block, Plan
 from .serializers import DrillSerializer, BlockSerializer, planSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -151,13 +151,13 @@ class BlockViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         if user.role in ['coach', 'assistant']:
-            # ✅ CHANGE - Coach তার নিজের blocks এবং assistant তার assigned drill এর blocks
+            # ✅ CHANGE - Coach sees their own blocks, assistant sees blocks of assigned drills
             if user.role == 'coach':
                 return Block.objects.filter(drill__create_By=user)
             else:  # assistant
                 return Block.objects.filter(drill__assistant_coach=user) | Block.objects.filter(drill__create_By=user)
         else:
-            # ✅ CHANGE - Regular members তাদের assigned drills এর blocks দেখতে পারবে
+            # ✅ CHANGE - Regular members can see blocks of their assigned drills
             return Block.objects.filter(drill__assigned_members=user).distinct()
 
     def perform_create(self, serializer):
@@ -308,27 +308,27 @@ class BlockViewSet(viewsets.ModelViewSet):
 
 
 class PlanViewSet(viewsets.ModelViewSet):
-    queryset = plan.objects.all()
+    queryset = Plan.objects.all()
     serializer_class = planSerializer
     permission_classes = [IsAuthenticated, IsCoachOrAssistant]
 
     def get_queryset(self):
         user = self.request.user
-        queryset = plan.objects.select_related('create_By').prefetch_related(
+        queryset = Plan.objects.select_related('create_By').prefetch_related(
             'Plan_Block',
             'Plan_Block__drill'
         )
 
-        # ✅ CHANGE - Role-based filtering অনুসারে
+        # ✅ CHANGE - Based on Role-based filtering
         if user.role in ['coach', 'assistant']:
             if user.role == 'coach':
                 queryset = queryset.filter(create_By=user)
             else:  # assistant
-                # Assistant তার assigned drills এর plans দেখতে পারবে
+                # Assistant can see plans of their assigned drills
                 queryset = queryset.filter(
                     Plan_Block__drill__assistant_coach=user).distinct()
         else:
-            # Regular members তাদের assigned drills এর plans দেখতে পারবে
+            # Regular members can see plans of their assigned drills
             queryset = queryset.filter(
                 Plan_Block__drill__assigned_members=user).distinct()
 

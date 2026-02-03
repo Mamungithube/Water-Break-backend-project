@@ -1,6 +1,6 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
-from .models import Drill, Block, plan, Notification, Reminder
+from .models import Drill, Block, Plan, Notification, Reminder
 
 
 @admin.register(Drill)
@@ -18,7 +18,7 @@ class DrillAdmin(ModelAdmin):
                 "description",
             )
         }),
-        # ✅ NEW FIELDSET - নতুন fields এর জন্য
+        # ✅ NEW FIELDSET - For new fields
         ("Team Assignment", {
             "fields": (
                 "assigned_members",
@@ -29,7 +29,7 @@ class DrillAdmin(ModelAdmin):
     
     readonly_fields = ["create_By", "date_created", "date_modified"]
     
-    # ✅ NEW - ManyToMany field এর জন্য filter_horizontal
+    # ✅ NEW - filter_horizontal for ManyToMany fields
     filter_horizontal = ['assign_team', 'assigned_members']
     
     def save_model(self, request, obj, form, change):
@@ -39,7 +39,7 @@ class DrillAdmin(ModelAdmin):
         super().save_model(request, obj, form, change)
     
     def get_readonly_fields(self, request, obj=None):
-        """Edit করার সময় create_By field readonly থাকবে"""
+        """The create_By field will remain readonly during editing"""
         if obj:
             return self.readonly_fields + ["create_By"]
         return self.readonly_fields
@@ -75,7 +75,7 @@ class BlockAdmin(ModelAdmin):
     readonly_fields = ["created_at", "updated_at"]
 
 
-@admin.register(plan)
+@admin.register(Plan)
 class PlanAdmin(ModelAdmin):
     list_display = ["id", "get_teams", "plan_title", "create_By", "get_plan_blocks", "start_practice_time", "end_practice_time", "created_at"] 
     list_filter = ["start_practice_time", "created_at"]
@@ -105,7 +105,7 @@ class PlanAdmin(ModelAdmin):
         super().save_model(request, obj, form, change)
     
     def get_readonly_fields(self, request, obj=None):
-        """Edit করার সময় create_By field readonly থাকবে"""
+        """The create_By field will remain readonly during editing"""
         if obj:
             return self.readonly_fields + ["create_By"]
         return self.readonly_fields

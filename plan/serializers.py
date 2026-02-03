@@ -2,9 +2,9 @@ from requests import Response
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
-from teamapp.models import Team,TeamMember
+from teamapp.models import Team, TeamMember
 from teamapp.serializers import TeamMemberSerializer
-from .models import Drill, Block, plan
+from .models import Drill, Block, Plan
 from account.serializers import UserSerializer
 
 
@@ -14,37 +14,37 @@ User = get_user_model()  # ✅ Import User model
 class DrillSerializer(serializers.ModelSerializer):
     create_By = UserSerializer(read_only=True)
     
-    # ইনপুট নেওয়ার জন্য সব ইউজারকে এক ফিল্ডে গ্রহণ করব
+    # Field to accept all users as input
     assigned_users = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=User.objects.all(),
-        write_only=True,  # এটি শুধু ডাটা সেভ করার সময় লাগবে
+        write_only=True,  # This is only needed during data saving
         required=False
     )
     
-    # রেসপন্সে সাজানো ডাটা দেওয়ার জন্য MethodField
+    # MethodField to provide formatted data in the response
     assigned_data = serializers.SerializerMethodField()
 
     class Meta:
         model = Drill
         fields = [
             'id', 'create_By', 'assign_team', 
-            'assigned_users', 'assigned_data', # ইনপুট নিব users এ, আউটপুট দিব data তে
+            'assigned_users', 'assigned_data', # Input in users, output in data
             'name', 'category', 'description', 
             'date_created', 'date_modified'
         ]
         read_only_fields = ['date_created', 'date_modified']
 
     def get_assigned_data(self, obj):
-    # ড্রিলের সাথে সরাসরি যুক্ত মেম্বারদের আইডি নিন
+        # Get IDs of members directly associated with the drill
         assigned_user_ids = obj.assigned_members.values_list('id', flat=True)
         
-        # টিম ফিল্টার বাদ দিয়ে সরাসরি মেম্বারশিপ থেকে ডাটা আনুন
-        # যাতে অন্তত ওই মেম্বারদের প্রোফাইল এবং নাম পাওয়া যায়
+        # Fetch data directly from membership by excluding team filters
+        # To ensure at least the profile and names of those members are retrieved
         team_memberships = TeamMember.objects.filter(
             member_id__in=assigned_user_ids
         ).select_related('member', 'member__profile').distinct('member_id') 
-        # .distinct('member_id') দিলে একই ইউজার কয়েক টিমে থাকলেও একবারই আসবে
+        # .distinct('member_id') ensures unique users even if they belong to multiple teams
     
         return {
             "players": TeamMemberSerializer(
@@ -60,7 +60,7 @@ class DrillSerializer(serializers.ModelSerializer):
         }
 
     def create(self, validated_data):
-        # assigned_users ডাটা আলাদা করে নিয়ে মূল মডেল সেভ করার পর যুক্ত করতে হবে
+        # Extract assigned_users data to add after saving the main model
         assigned_users = validated_data.pop('assigned_users', [])
         
         user = self.context['request'].user
@@ -69,7 +69,7 @@ class DrillSerializer(serializers.ModelSerializer):
             
         drill = super().create(validated_data)
         
-        # মেম্বারদের ড্রিল-এ যুক্ত করা
+        # Adding members to the drill
         if assigned_users:
             drill.assigned_members.set(assigned_users)
             
@@ -107,7 +107,7 @@ class BlockSerializer(serializers.ModelSerializer):
     )
     
     practice_plan = serializers.PrimaryKeyRelatedField(
-        queryset=plan.objects.all(),
+        queryset=Plan.objects.all(),
         required=False,
         allow_null=True
     )
@@ -282,7 +282,7 @@ class planSerializer(serializers.ModelSerializer):
     available_members = serializers.SerializerMethodField()
     available_assistants = serializers.SerializerMethodField()
     class Meta:
-        model = plan
+        model = Plan
         fields = [
             'id', 'create_By', 'assign_team', 'plan_title', 'available_members', 'available_assistants',
             'Plan_Block', 'plan_blocks_detail', 'start_practice_time', 'end_practice_time',
@@ -291,11 +291,10 @@ class planSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'updated_at', 'create_By']
     
     def get_available_members(self, obj):
-        """TeamMember মডেল থেকে শুধুমাত্র 'player' রোল এর মেম্বারদের ফিল্টার করা"""
+        """Filter only 'player' role members from the TeamMember model"""
 
         team_ids = obj.assign_team.values_list('id', flat=True)
         
-   
         memberships = TeamMember.objects.filter(
             team_id__in=team_ids,
             role='player'
@@ -316,7 +315,7 @@ class planSerializer(serializers.ModelSerializer):
         return list(unique_members.values())
     
     def get_available_assistants(self, obj):
-     
+        """Filter only 'assistant' role members from the TeamMember model"""
         team_ids = obj.assign_team.values_list('id', flat=True)
         
         assistants = TeamMember.objects.filter(
@@ -346,4 +345,3 @@ class planSerializer(serializers.ModelSerializer):
                 block.practice_plan = instance
                 block.save()
         return instance
-    

@@ -37,7 +37,7 @@ class Drill(models.Model):
         return self.name
 
 
-class plan(models.Model):
+class Plan(models.Model):
     create_By = models.ForeignKey('account.User', on_delete=models.CASCADE)
     assign_team = models.ManyToManyField("teamapp.Team" , blank=True, related_name='Teams')
     plan_title = models.CharField(max_length=100)
@@ -52,7 +52,7 @@ class plan(models.Model):
 
 class Block(models.Model):
     drill = models.ForeignKey(Drill, on_delete=models.CASCADE , related_name='blocks', null=True, blank=True)
-    practice_plan = models.ForeignKey(plan, on_delete=models.CASCADE, related_name='Plan_Block', null=True, blank=True)
+    practice_plan = models.ForeignKey(Plan, on_delete=models.CASCADE, related_name='Plan_Block', null=True, blank=True)
     title = models.CharField(max_length=50)
     color_code = models.CharField(max_length=7, null=True, blank=True)
     start_time = models.TimeField(auto_now=False, auto_now_add=False)
@@ -142,8 +142,8 @@ def schedule_reminders_for_object(obj, send_at=None, offset_minutes=None):
             
             send_at = start_dt - timedelta(minutes=offset_minutes)
 
-    elif isinstance(obj, plan):
-        # ✅ CHANGE - Plan এর সব blocks এর drill এর assigned_members এবং assistant_coach
+    elif isinstance(obj, Plan):
+        # ✅ CHANGE - assigned_members and assistant_coach of the drill for all blocks in the Plan
         for block in obj.Plan_Block.all():
             drill = block.drill
             if drill:
@@ -181,7 +181,7 @@ def create_drill_reminders(sender, instance, created, **kwargs):
         schedule_reminders_for_object(instance, send_at=send_at)
 
 
-# ✅ NEW SIGNAL - যখন drill এ assigned_members change হবে
+# ✅ NEW SIGNAL - Trigger when assigned_members change in a drill
 @receiver(m2m_changed, sender=Drill.assigned_members.through)
 def drill_assigned_members_changed(sender, instance, action, pk_set, **kwargs):
     """When assigned_members are added to a drill, send reminders"""
@@ -224,8 +224,7 @@ def create_block_reminders(sender, instance, created, **kwargs):
         
         schedule_reminders_for_object(instance, send_at=send_at)
 
-
-@receiver(post_save, sender=plan)
+@receiver(post_save, sender=Plan)
 def create_plan_reminders(sender, instance, created, **kwargs):
     if created:
         offset = _get_offset_minutes()

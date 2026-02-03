@@ -5,8 +5,8 @@ class SubscriptionPlan(models.Model):
     """Pricing plans"""
     PLAN_TYPE_CHOICES = [
         ("free", "Free Mode"),
-        ("team", "Team Plan"),
-        ("club", "Club Discount"),
+        ("Pro", "Pro Plan"),
+        ("Elite", "Elite Plan"),
     ]
     
     BILLING_PERIOD_CHOICES = [
@@ -25,8 +25,14 @@ class SubscriptionPlan(models.Model):
     
     # Limits
     max_teams_allowed = models.PositiveIntegerField(default=0)
-    max_drills = models.PositiveIntegerField(default=5)  # -1 = unlimited
-    max_practice_plans = models.PositiveIntegerField(default=5)  # -1 = unlimited
+    max_drills = models.IntegerField(
+        default=5,
+        help_text="5 for free, -1 for unlimited"
+    )
+    max_practice_plans = models.IntegerField(
+        default=5,
+        help_text="5 for free, -1 for unlimited"
+    )
     
     # RevenueCat product ID
     revenue_cat_product_id = models.CharField(max_length=255, unique=True)
@@ -96,19 +102,16 @@ class Subscription(models.Model):
         return plan.objects.filter(create_By=self.user).count()
     
     def can_create_team(self):
-        """Check team creation limit"""
         if not self.is_active:
             return False, "Active subscription required"
-        
-        if self.plan.name == "free":
-            return False, "Free plan does not allow team creation. Upgrade to Team or Club plan."
-        
-        current_count = self.number_of_teams
-        max_allowed = self.plan.max_teams_allowed
-        
-        if self.plan.name == "team" and current_count >= max_allowed:
-            return False, "Team plan allows only 1 team. Upgrade to Club plan for unlimited teams."
-        
+
+        # "free" নাম চেক না করে সরাসরি max_teams_allowed চেক করুন
+        if self.plan.max_teams_allowed == 0:
+            return False, "Your plan does not allow team creation."
+
+        if self.number_of_teams >= self.plan.max_teams_allowed:
+            return False, f"Limit reached. Max allowed: {self.plan.max_teams_allowed}"
+
         return True, None
     
     def can_create_drill(self):

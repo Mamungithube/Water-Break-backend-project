@@ -1,20 +1,20 @@
 from rest_framework import serializers
-from .models import  privacy_policy, termsandconditions, aboutus
+from .models import  Privacy_Policy, TermsAndConditions, AboutUs
 
 
 class PrivacyPolicySerializer(serializers.ModelSerializer):
     class Meta:
-        model = privacy_policy
+        model = Privacy_Policy
         fields = '__all__'
 
 
 class TermsAndConditionsSerializer(serializers.ModelSerializer):
     class Meta:
-        model = termsandconditions
+        model = TermsAndConditions
         fields = '__all__'
 
 
 class AboutUsSerializer(serializers.ModelSerializer):
     class Meta:
-        model = aboutus
+        model = AboutUs
         fields = '__all__'
