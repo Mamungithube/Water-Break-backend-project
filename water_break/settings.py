@@ -82,6 +82,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'drf_spectacular',
     'channels',
+    'django_celery_beat',
 
     # Local apps
     'account',
@@ -90,7 +91,6 @@ INSTALLED_APPS = [
     'subscription',
     'service',
     'teamapp',
-    'django_celery_beat',
 
 ]
 

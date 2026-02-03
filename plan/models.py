@@ -12,6 +12,7 @@ from django.dispatch import receiver
 
 class Drill(models.Model):
     create_By = models.ForeignKey('account.User', on_delete=models.CASCADE)
+    assign_team_name = models.CharField(max_length=100, blank=True, null=True)
     assign_team = models.ManyToManyField("teamapp.Team" , blank=True, related_name='drills')
     name = models.CharField(max_length=50)
     assigned_members = models.ManyToManyField(

@@ -28,7 +28,8 @@ class DrillSerializer(serializers.ModelSerializer):
     class Meta:
         model = Drill
         fields = [
-            'id', 'create_By', 'assign_team', 
+            'id', 'create_By', 'assign_team', 'assign_team_name', 
+            'assistant_coach', 
             'assigned_users', 'assigned_data', # Input in users, output in data
             'name', 'category', 'description', 
             'date_created', 'date_modified'
