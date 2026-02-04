@@ -369,101 +369,68 @@ class PlanViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def create(self, request, *args, **kwargs):
+        # Permission check
+        if request.user.role not in ['coach', 'assistant']:
+            return Response({
+                'status': 'error',
+                'message': 'Only coaches and assistants can create plans'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
         try:
             serializer = self.get_serializer(data=request.data)
             if serializer.is_valid():
-                blocks = serializer.validated_data.pop('Plan_Block', [])
-                assign_teams = serializer.validated_data.pop('assign_team', [])
-
-                # Validate blocks
-                for block in blocks:
-                    if block.drill.create_By != request.user:
-                        return Response({
-                            "status": "error",
-                            "message": f"Block '{block.title}' belongs to a drill you did not create."
-                        }, status=status.HTTP_400_BAD_REQUEST)
-
-                # Create plan instance
-                plan_instance = serializer.save(create_By=request.user)
-
-                # Add many-to-many relationships
-                plan_instance.assign_team.set(assign_teams)
-
-                # Save blocks
-                for block in blocks:
-                    block.practice_plan = plan_instance
-                    block.save()
-
-                # Prepare response data
+                plan_instance = serializer.save()
+                
                 response_data = {
                     "status": "success",
-                    "message": "Plan created successfully",
-                    "data": {
-                        "id": plan_instance.id,
-                        "create_By": plan_instance.create_By.id,
-                        "plan_title": plan_instance.plan_title,
-                        "start_practice_time": plan_instance.start_practice_time.strftime("%Y-%m-%d %H:%M:%S") if plan_instance.start_practice_time else None,
-                        "end_practice_time": plan_instance.end_practice_time.strftime("%Y-%m-%d %H:%M:%S") if plan_instance.end_practice_time else None,
-                        "created_at": plan_instance.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-                        "updated_at": plan_instance.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
-                        "assign_team": list(plan_instance.assign_team.values_list('id', flat=True))
-                    }
+                    "message": "Plan created successfully with drills and blocks",
+                    "data": planSerializer(plan_instance, context={'request': request}).data
                 }
-
+                
                 return Response(response_data, status=status.HTTP_201_CREATED)
-
+            
             return Response({
                 "status": "error",
                 "message": "Validation failed",
                 "errors": serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
-
+        
         except Exception as e:
             return Response({
                 "status": "error",
                 "message": "Something went wrong",
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+    
     def update(self, request, *args, **kwargs):
+        # Permission check
+        if request.user.role not in ['coach', 'assistant']:
+            return Response({
+                'status': 'error',
+                'message': 'Only coaches and assistants can update plans'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
         try:
             partial = kwargs.pop('partial', False)
             instance = self.get_object()
-            serializer = self.get_serializer(
-                instance, data=request.data, partial=partial)
-
+            
+            serializer = self.get_serializer(instance, data=request.data, partial=partial)
+            
             if serializer.is_valid():
-                blocks = serializer.validated_data.get('Plan_Block', [])
-                for block in blocks:
-                    if block.drill.create_By != request.user:
-                        return Response({
-                            "status": "error",
-                            "message": f"Block '{block.title}' is unauthorized."
-                        }, status=status.HTTP_403_FORBIDDEN)
-
                 serializer.save()
-
+                
                 return Response({
                     "status": "success",
-                    "message": "Plan updated successfully",
-                    "data": {
-                        "id": instance.id,
-                        "plan_title": instance.plan_title,
-                        "create_By": instance.create_By.id,
-                        "assign_team": list(instance.assign_team.values_list('id', flat=True)),
-                        "start_practice_time": instance.start_practice_time.strftime("%Y-%m-%d %H:%M:%S") if instance.start_practice_time else None,
-                        "end_practice_time": instance.end_practice_time.strftime("%Y-%m-%d %H:%M:%S") if instance.end_practice_time else None,
-                        "created_at": instance.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-                        "updated_at": instance.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
-                    }
+                    "message": "Plan updated successfully with drills and blocks",
+                    "data": planSerializer(instance, context={'request': request}).data
                 }, status=status.HTTP_200_OK)
-
-                return Response({
-                    "status": "error",
-                    "message": "Update failed",
-                    "errors": serializer.errors
-                }, status=status.HTTP_400_BAD_REQUEST)
-
+            
+            return Response({
+                "status": "error",
+                "message": "Update failed",
+                "errors": serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
         except Http404:
             return Response({
                 "status": "error",

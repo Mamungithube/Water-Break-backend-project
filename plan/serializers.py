@@ -269,31 +269,38 @@ class BlockSerializer(serializers.ModelSerializer):
 class planSerializer(serializers.ModelSerializer):
     create_By = serializers.PrimaryKeyRelatedField(read_only=True)
     
+    # Nested serializers for read
     plan_blocks_detail = BlockSerializer(source='Plan_Block', many=True, read_only=True)
     
-    Plan_Block = serializers.PrimaryKeyRelatedField(
-        queryset=Block.objects.all(),
-        many=True,
-        required=False
+    # For write operations
+    blocks_data = serializers.ListField(
+        child=serializers.DictField(),
+        write_only=True,
+        required=False,
+        help_text="List of blocks with drill details"
     )
+    
     assign_team = serializers.PrimaryKeyRelatedField(
         many=True, 
         queryset=Team.objects.all()
     )
+    
     available_members = serializers.SerializerMethodField()
     available_assistants = serializers.SerializerMethodField()
+    
     class Meta:
         model = Plan
         fields = [
-            'id', 'create_By', 'assign_team', 'plan_title', 'available_members', 'available_assistants',
-            'Plan_Block', 'plan_blocks_detail', 'start_practice_time', 'end_practice_time',
+            'id', 'create_By', 'assign_team', 'plan_title', 
+            'available_members', 'available_assistants',
+            'plan_blocks_detail', 'blocks_data',  # blocks_data for write, plan_blocks_detail for read
+            'start_practice_time', 'end_practice_time',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at', 'create_By']
     
     def get_available_members(self, obj):
         """Filter only 'player' role members from the TeamMember model"""
-
         team_ids = obj.assign_team.values_list('id', flat=True)
         
         memberships = TeamMember.objects.filter(
@@ -337,12 +344,93 @@ class planSerializer(serializers.ModelSerializer):
         unique_assistants = {a['id']: a for a in assistant_list}
         return list(unique_assistants.values())
 
-    def update(self, instance, validated_data):
-        blocks = validated_data.pop('Plan_Block', None)
-        instance = super().update(instance, validated_data)
+    def create(self, validated_data):
+        blocks_data = validated_data.pop('blocks_data', [])
+        assign_teams = validated_data.pop('assign_team', [])
         
-        if blocks is not None:
-            for block in blocks:
-                block.practice_plan = instance
-                block.save()
+        user = self.context['request'].user
+        
+        # Create plan
+        plan = Plan.objects.create(create_By=user, **validated_data)
+        plan.assign_team.set(assign_teams)
+        
+        # Create drills and blocks
+        for block_item in blocks_data:
+            drill_data = block_item.pop('drill_details', None)
+            
+            if drill_data:
+                # Create drill
+                drill_serializer = DrillSerializer(data=drill_data, context=self.context)
+                if drill_serializer.is_valid(raise_exception=True):
+                    drill = drill_serializer.save(create_By=user)
+                    
+                    # Create block
+                    block_item['drill'] = drill.id
+                    block_item['practice_plan'] = plan.id
+                    
+                    block_serializer = BlockSerializer(data=block_item, context=self.context)
+                    if block_serializer.is_valid(raise_exception=True):
+                        block_serializer.save()
+        
+        return plan
+
+    def update(self, instance, validated_data):
+        blocks_data = validated_data.pop('blocks_data', None)
+        assign_teams = validated_data.pop('assign_team', None)
+        
+        # Update plan fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        if assign_teams is not None:
+            instance.assign_team.set(assign_teams)
+        
+        # Update/Create blocks and drills
+        if blocks_data is not None:
+            for block_item in blocks_data:
+                block_id = block_item.get('id', None)
+                drill_data = block_item.pop('drill_details', None)
+                
+                if block_id:
+                    # Update existing block
+                    try:
+                        block = Block.objects.get(id=block_id, practice_plan=instance)
+                        
+                        # Update drill if provided
+                        if drill_data and block.drill:
+                            drill = block.drill
+                            for attr, value in drill_data.items():
+                                if attr == 'assigned_users':
+                                    drill.assigned_members.set(value)
+                                elif attr == 'assign_team':
+                                    drill.assign_team.set(value)
+                                elif attr == 'assistant_coach':
+                                    drill.assistant_coach_id = value
+                                else:
+                                    setattr(drill, attr, value)
+                            drill.save()
+                        
+                        # Update block
+                        for attr, value in block_item.items():
+                            if attr != 'id' and attr != 'drill_details':
+                                setattr(block, attr, value)
+                        block.save()
+                        
+                    except Block.DoesNotExist:
+                        pass
+                else:
+                    # Create new block with drill
+                    if drill_data:
+                        drill_serializer = DrillSerializer(data=drill_data, context=self.context)
+                        if drill_serializer.is_valid(raise_exception=True):
+                            drill = drill_serializer.save(create_By=self.context['request'].user)
+                            
+                            block_item['drill'] = drill.id
+                            block_item['practice_plan'] = instance.id
+                            
+                            block_serializer = BlockSerializer(data=block_item, context=self.context)
+                            if block_serializer.is_valid(raise_exception=True):
+                                block_serializer.save()
+        
         return instance
