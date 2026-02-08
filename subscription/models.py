@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from plan.models import Plan
 
 class SubscriptionPlan(models.Model):
     """Pricing plans"""
@@ -98,8 +99,8 @@ class Subscription(models.Model):
     # Practice plan count
     @property
     def number_of_practice_plans(self):
-        from plan.models import plan
-        return plan.objects.filter(create_By=self.user).count()
+        
+        return Plan.objects.filter(create_By=self.user).count()
     
     def can_create_team(self):
         if not self.is_active:

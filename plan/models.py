@@ -52,6 +52,7 @@ class Plan(models.Model):
 
 
 class Block(models.Model):
+    create_By = models.ForeignKey('account.User', on_delete=models.CASCADE)
     drill = models.ForeignKey(Drill, on_delete=models.CASCADE , related_name='blocks', null=True, blank=True)
     practice_plan = models.ForeignKey(Plan, on_delete=models.CASCADE, related_name='Plan_Block', null=True, blank=True)
     title = models.CharField(max_length=50)
@@ -62,7 +63,8 @@ class Block(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.drill.name} - {self.title}"
+        drill_name = self.drill.name if self.drill else "No Drill"
+        return f"{drill_name} - {self.title}"
     
 
 class Notification(models.Model):
