@@ -8,21 +8,19 @@ from .models import Drill, Block, Plan
 from account.serializers import UserSerializer
 
 
-User = get_user_model()  # ✅ Import User model
+User = get_user_model()
 
 
 class DrillSerializer(serializers.ModelSerializer):
     create_By = UserSerializer(read_only=True)
 
-    # Field to accept all users as input
     assigned_users = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=User.objects.all(),
-        write_only=True,  # This is only needed during data saving
+        write_only=True,
         required=False
     )
 
-    # MethodField to provide formatted data in the response
     assigned_data = serializers.SerializerMethodField()
 
     class Meta:
@@ -30,22 +28,18 @@ class DrillSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'create_By', 'assign_team', 'assign_team_name',
             'assistant_coach',
-            'assigned_users', 'assigned_data',  # Input in users, output in data
+            'assigned_users', 'assigned_data',
             'name', 'category', 'description',
             'date_created', 'date_modified'
         ]
         read_only_fields = ['date_created', 'date_modified']
 
     def get_assigned_data(self, obj):
-        # Get IDs of members directly associated with the drill
         assigned_user_ids = obj.assigned_members.values_list('id', flat=True)
 
-        # Fetch data directly from membership by excluding team filters
-        # To ensure at least the profile and names of those members are retrieved
         team_memberships = TeamMember.objects.filter(
             member_id__in=assigned_user_ids
         ).select_related('member', 'member__profile').distinct('member_id')
-        # .distinct('member_id') ensures unique users even if they belong to multiple teams
 
         return {
             "players": TeamMemberSerializer(
@@ -61,7 +55,6 @@ class DrillSerializer(serializers.ModelSerializer):
         }
 
     def create(self, validated_data):
-        # Extract assigned_users data to add after saving the main model
         assigned_users = validated_data.pop('assigned_users', [])
 
         user = self.context['request'].user
@@ -70,16 +63,13 @@ class DrillSerializer(serializers.ModelSerializer):
 
         drill = super().create(validated_data)
 
-        # Adding members to the drill
         if assigned_users:
             drill.assigned_members.set(assigned_users)
 
         return drill
 
     def validate_assign_team(self, value):
-        """Validate that coach can only assign their own teams"""
         user = self.context['request'].user
-
         coach_teams = Team.objects.filter(coach=user)
 
         for team in value:
@@ -91,7 +81,6 @@ class DrillSerializer(serializers.ModelSerializer):
         return value
 
     def validate_assistant_coach(self, value):
-        """Validate that assistant_coach has 'assistant' role"""
         if value and value.role != 'assistant':
             raise serializers.ValidationError(
                 "Only users with 'assistant' role can be assigned as assistant coach."
@@ -118,7 +107,6 @@ class BlockSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'drill',
-
             'drill_details',
             'practice_plan',
             'title',
@@ -131,13 +119,11 @@ class BlockSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'updated_at']
 
     def get_drill_details(self, obj):
-        """Get drill details for display"""
         if obj.drill:
             return DrillSerializer(obj.drill, context=self.context).data
         return None
 
     def validate_drill(self, value):
-        """Validate that the drill belongs to the current user"""
         user = self.context['request'].user
         if value and value.create_By != user:
             raise serializers.ValidationError(
@@ -146,7 +132,6 @@ class BlockSerializer(serializers.ModelSerializer):
         return value
 
     def validate_practice_plan(self, value):
-        """Validate that the practice plan belongs to the current user"""
         if value:
             user = self.context['request'].user
             if value.create_By != user:
@@ -156,22 +141,16 @@ class BlockSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        """
-        Cross-field validation:
-        - Check if drill's assigned_members are from practice_plan's assigned teams
-        """
         drill = attrs.get('drill') or (
             self.instance.drill if self.instance else None)
         practice_plan = attrs.get('practice_plan') or (
             self.instance.practice_plan if self.instance else None)
 
         if drill and practice_plan:
-            # Get all members from plan's assigned teams
             plan_team_members = set()
             for team in practice_plan.assign_team.all():
                 plan_team_members.update(team.members.all())
 
-            # Check if all drill's assigned_members are in plan's teams
             for member in drill.assigned_members.all():
                 if member not in plan_team_members:
                     raise serializers.ValidationError({
@@ -179,13 +158,13 @@ class BlockSerializer(serializers.ModelSerializer):
                     })
 
         return attrs
+    
     def create(self, validated_data):
         user = self.context['request'].user
         validated_data['create_By'] = user
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
-        """Allow updating drill details through block"""
         request = self.context.get('request')
         user = request.user if request else None
 
@@ -236,11 +215,9 @@ class BlockSerializer(serializers.ModelSerializer):
 
                 drill.assign_team.set(team_ids)
 
-            # Handle assigned_members update
             if 'assigned_members' in drill_details_data:
                 member_ids = drill_details_data['assigned_members']
 
-                # Validate that members are from practice_plan's teams
                 if instance.practice_plan:
                     plan_team_members = set()
                     for team in instance.practice_plan.assign_team.all():
@@ -255,7 +232,6 @@ class BlockSerializer(serializers.ModelSerializer):
 
                 drill.assigned_members.set(member_ids)
 
-            # Handle assistant_coach update
             if 'assistant_coach' in drill_details_data:
                 assistant_id = drill_details_data['assistant_coach']
                 if assistant_id:
@@ -281,11 +257,8 @@ class BlockSerializer(serializers.ModelSerializer):
 class planSerializer(serializers.ModelSerializer):
     create_By = serializers.PrimaryKeyRelatedField(read_only=True)
 
-    # Nested serializers for read
-    plan_blocks_detail = BlockSerializer(
-        source='Plan_Block', many=True, read_only=True)
+    plan_blocks_detail = serializers.SerializerMethodField()
 
-    # For write operations
     blocks_data = serializers.ListField(
         child=serializers.DictField(),
         write_only=True,
@@ -306,12 +279,16 @@ class planSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'create_By', 'assign_team', 'plan_title',
             'available_members', 'available_assistants',
-            # blocks_data for write, plan_blocks_detail for read
             'plan_blocks_detail', 'blocks_data',
             'start_practice_time', 'end_practice_time',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at', 'create_By']
+
+    def get_plan_blocks_detail(self, obj):
+        """Get blocks sorted by start_time (practice schedule order)"""
+        blocks = obj.Plan_Block.all().order_by('start_time')
+        return BlockSerializer(blocks, many=True, context=self.context).data
 
     def get_available_members(self, obj):
         """Filter only 'player' role members from the TeamMember model"""
@@ -430,7 +407,6 @@ class planSerializer(serializers.ModelSerializer):
 
                         # Update block
                         for attr, value in block_item.items():
-                              # 🚨 এখানে চেক যোগ করুন যেন 'create_By' আপডেট করার চেষ্টা না করে
                             if attr not in ['id', 'drill_details', 'create_By']:
                                 setattr(block, attr, value)
                         block.save()
@@ -440,15 +416,18 @@ class planSerializer(serializers.ModelSerializer):
                 else:
                     # Create new block with drill
                     if drill_data:
-                        drill_serializer = DrillSerializer(data=drill_data, context=self.context)
+                        drill_serializer = DrillSerializer(
+                            data=drill_data, context=self.context)
                         if drill_serializer.is_valid(raise_exception=True):
-                            drill = drill_serializer.save(create_By=self.context['request'].user)
-                            
+                            drill = drill_serializer.save(
+                                create_By=self.context['request'].user)
+
                             block_item['drill'] = drill.id
                             block_item['practice_plan'] = instance.id
-                            
-                            block_serializer = BlockSerializer(data=block_item, context=self.context)
+
+                            block_serializer = BlockSerializer(
+                                data=block_item, context=self.context)
                             if block_serializer.is_valid(raise_exception=True):
                                 block_serializer.save()
-        
+
         return instance

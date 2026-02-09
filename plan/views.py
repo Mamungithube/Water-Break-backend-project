@@ -319,20 +319,18 @@ class PlanViewSet(viewsets.ModelViewSet):
             'Plan_Block__drill'
         )
 
-        # ✅ CHANGE - Based on Role-based filtering
+        # Role-based filtering
         if user.role in ['coach', 'assistant']:
             if user.role == 'coach':
                 queryset = queryset.filter(create_By=user)
-            else:  # assistant
-                # Assistant can see plans of their assigned drills
+            else:
                 queryset = queryset.filter(
                     Plan_Block__drill__assistant_coach=user).distinct()
         else:
-            # Regular members can see plans of their assigned drills
             queryset = queryset.filter(
                 Plan_Block__drill__assigned_members=user).distinct()
 
-        # Apply date filtering if provided
+        # Date filtering
         date_param = self.request.query_params.get('date', None)
         if date_param:
             try:
@@ -342,7 +340,8 @@ class PlanViewSet(viewsets.ModelViewSet):
             except ValueError:
                 pass
 
-        return queryset.distinct()
+        # ✅ Plan ID অনুসারে সর্ট - বড় ID প্রথমে (নতুন প্রথমে)
+        return queryset.distinct().order_by('-id')
 
     def list(self, request, *args, **kwargs):
         """Override list to provide custom response format with date filtering"""

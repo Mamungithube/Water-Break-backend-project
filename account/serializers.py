@@ -142,10 +142,12 @@ class NotificationSerializer(serializers.ModelSerializer):
 class ProfileSerializer(serializers.ModelSerializer):
     fullname = serializers.SerializerMethodField()
     email = serializers.SerializerMethodField()
+    role = serializers.CharField(source='user.role', read_only=True)
+
 
     class Meta:
         model = Profile
-        fields = ['fullname', 'email', 'profile_picture']
+        fields = ['fullname', 'email', 'profile_picture','role']
 
     def get_fullname(self, obj):
         return getattr(getattr(obj, 'user', None), 'Fullname', '') or ''

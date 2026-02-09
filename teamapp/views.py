@@ -14,6 +14,7 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from account.models import Notification
 from django.db.models import Q
+from plan.permissions import IsCoachOrAssistant
 
 # Create your views here.
 """=============================Team view set==========================================="""
@@ -23,7 +24,16 @@ class teamviewset(viewsets.ModelViewSet):
     queryset = Team.objects.all()
     serializer_class = teamserializers
     permission_classes = [IsAuthenticated]
-
+    
+    def get_permissions(self):
+        """
+        Create action শুধুমাত্র Coach বা Assistant করতে পারবে
+        অন্যান্য action-এ শুধু IsAuthenticated যথেষ্ট
+        """
+        if self.action == 'create':
+            return [IsAuthenticated(), IsCoachOrAssistant()]
+        return [IsAuthenticated()]
+    
     def get_queryset(self):
         """Filter teams based on user role"""
         user = self.request.user
@@ -183,7 +193,7 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
     # queryset = TeamMember.objects.all()
     queryset = TeamMember.objects.select_related('member__profile', 'team').all()
     serializer_class = TeamMemberSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated ,]
 
     def get_queryset(self):
         user = self.request.user
