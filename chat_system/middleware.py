@@ -14,10 +14,10 @@ def get_user_from_token(token):
         jwt_auth = JWTAuthentication()
         validated_token = jwt_auth.get_validated_token(token)
         user = jwt_auth.get_user(validated_token)
-        print(f"✅ Token validated for user: {user.email}")
+        # print(f"✅ Token validated for user: {user.email}")
         return user
     except Exception as e:
-        print(f"❌ Token validation failed: {str(e)}")
+        # print(f"❌ Token validation failed: {str(e)}")
         return AnonymousUser()
 
 

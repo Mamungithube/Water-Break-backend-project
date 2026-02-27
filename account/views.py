@@ -175,7 +175,7 @@ class GoogleCallbackView(APIView):
 
             user, created = User.objects.get_or_create(email=email)
 
-            print(f"Saving user: {email}, Name: {name}")
+            # print(f"Saving user: {email}, Name: {name}")
             user.Fullname = name
             user.social_auth_provider = "google"
             user.is_active = True

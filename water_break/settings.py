@@ -315,7 +315,10 @@ ASGI_APPLICATION = 'water_break.asgi.application'
 
 CHANNEL_LAYERS = {
     "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer"
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [os.getenv("REDIS_URL", "redis://redis:6379/2")],
+        },
     }
 }
 
