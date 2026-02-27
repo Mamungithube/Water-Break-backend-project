@@ -41,16 +41,6 @@ def _send_subscription_update(subscription):
 def _get_plan_from_product_id(product_id):
     """
     Map RevenueCat product_id to SubscriptionPlan
-    
-    Expected product IDs:
-    - free_plan
-    - monthly_team_plan
-    - annual_team_plan
-    - monthly_club_2_teams
-    - monthly_club_5_teams
-    - annual_club_2_teams
-    - annual_club_5_teams
-    etc.
     """
     try:
         plan = SubscriptionPlan.objects.get(
@@ -77,7 +67,7 @@ def _get_plan_from_product_id(product_id):
 def revenuecat_webhook(request):
     """
     Handle RevenueCat webhook events
-    
+
     Supported event types:
     - INITIAL_PURCHASE: User subscribes for first time
     - RENEWAL: Subscription renewed
@@ -87,11 +77,11 @@ def revenuecat_webhook(request):
     - BILLING_ISSUE: Payment failed
     - UNCANCELLATION: User reactivated subscription
     """
-    
+
     # 🔐 Verify webhook authentication
     auth_header = request.headers.get("Authorization")
     expected_header = settings.REVENUECAT_WEBHOOK_AUTH_HEADER
-    
+
     if not expected_header:
         logger.error("REVENUECAT_WEBHOOK_AUTH_HEADER not configured in settings.")
         return HttpResponseForbidden("Server Configuration Error")
@@ -128,7 +118,7 @@ def revenuecat_webhook(request):
 
     # 👤 Find user
     app_user_id = event.get('app_user_id')
-    
+
     try:
         user_id = int(app_user_id)
         user = User.objects.get(id=user_id)
@@ -137,11 +127,11 @@ def revenuecat_webhook(request):
         return HttpResponse(status=200)
 
     # 📊 Extract subscription data
-    product_id = event.get('product_id')  # e.g., "monthly_team_plan"
+    product_id = event.get('product_id')
     expiration_at_ms = event.get('expiration_at_ms')
     purchased_at_ms = event.get('purchased_at_ms')
-    store = event.get('store')  # "APP_STORE", "PLAY_STORE", "STRIPE"
-    
+    store = event.get('store')
+
     logger.info(
         f"Processing {event_type} for user {user.id} | "
         f"product: {product_id} | store: {store}"
@@ -159,37 +149,40 @@ def revenuecat_webhook(request):
 
     # 🎯 Handle different event types
     if event_type in ['INITIAL_PURCHASE', 'RENEWAL', 'UNCANCELLATION', 'PRODUCT_CHANGE']:
-        # Get plan from product_id
         plan = _get_plan_from_product_id(product_id)
-        
+
         if not plan:
             logger.error(f"Could not determine plan for product_id: {product_id}")
             return HttpResponse(status=200)
-        
-        # Update subscription
+
         subscription.plan = plan
         subscription.status = 'active'
         subscription.revenue_cat_id = app_user_id
-        
-        # Set dates
+
         if purchased_at_ms:
             subscription.started_at = datetime.datetime.fromtimestamp(
                 purchased_at_ms / 1000.0,
                 tz=datetime.timezone.utc
             )
             subscription.current_period_start = subscription.started_at
-        
+
         if expiration_at_ms:
             subscription.current_period_end = datetime.datetime.fromtimestamp(
                 expiration_at_ms / 1000.0,
                 tz=datetime.timezone.utc
             )
-        
-        # Clear cancellation date if uncancelled
+
         if event_type == 'UNCANCELLATION':
             subscription.canceled_at = None
-        
+
         subscription.save()
+
+        # ✅ যেকোনো paid plan কিনলে role → coach
+        if plan.name != 'free' and user.role != 'coach':
+            user.role = 'coach'
+            user.save(update_fields=['role'])
+            logger.info(f"👑 User {user.id} role updated to coach after purchasing {plan.get_name_display()}")
+
         logger.info(
             f"✅ User {user.id} subscription activated: "
             f"{plan.get_name_display()} ({plan.billing_period or 'one-time'})"
@@ -200,31 +193,35 @@ def revenuecat_webhook(request):
         subscription.status = 'canceled'
         subscription.canceled_at = timezone.now()
         subscription.save()
-        
+
         logger.info(
             f"⚠️ User {user.id} canceled subscription. "
             f"Active until {subscription.current_period_end}"
         )
 
     elif event_type == 'EXPIRATION':
-        # Subscription expired - downgrade to free
         free_plan = SubscriptionPlan.objects.filter(name='free', is_active=True).first()
-        
+
         if free_plan:
             subscription.plan = free_plan
             subscription.status = 'expired'
             subscription.current_period_end = timezone.now()
             subscription.save()
-            
+
+            # ✅ Subscription expire হলে role → player
+            if user.role == 'coach':
+                user.role = 'player'
+                user.save(update_fields=['role'])
+                logger.info(f"🔽 User {user.id} role downgraded to player after expiration")
+
             logger.info(f"❌ User {user.id} subscription expired. Downgraded to free.")
         else:
             logger.error("No free plan available for downgrade!")
 
     elif event_type == 'BILLING_ISSUE':
-        # Payment failed
         subscription.status = 'inactive'
         subscription.save()
-        
+
         logger.warning(
             f"💳 Billing issue for user {user.id}. "
             f"Subscription set to inactive."

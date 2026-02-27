@@ -1,6 +1,6 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
-from .models import Drill, Block, Plan, Notification, Reminder
+from .models import Drill, Block, Plan, Reminder
 
 
 @admin.register(Drill)
@@ -126,34 +126,34 @@ class PlanAdmin(ModelAdmin):
     get_teams.short_description = "Assigned Team"
 
 
-@admin.register(Notification)
-class NotificationAdmin(ModelAdmin):
-    list_display = ["title", "user", "read", "created_at"]
-    list_filter = ["read", "created_at"]
-    search_fields = ["title", "message", "user__username", "user__email"]
-    readonly_fields = ["created_at"]
+# @admin.register(Notification)
+# class NotificationAdmin(ModelAdmin):
+#     list_display = ["title", "user", "read", "created_at"]
+#     list_filter = ["read", "created_at"]
+#     search_fields = ["title", "message", "user__username", "user__email"]
+#     readonly_fields = ["created_at"]
     
-    fieldsets = (
-        ("Notification Details", {
-            "fields": (
-                "user",
-                "title",
-                "message",
-                "read",
-            )
-        }),
-        ("Metadata", {
-            "fields": (
-                "created_at",
-            )
-        }),
-    )
+#     fieldsets = (
+#         ("Notification Details", {
+#             "fields": (
+#                 "user",
+#                 "title",
+#                 "message",
+#                 "read",
+#             )
+#         }),
+#         ("Metadata", {
+#             "fields": (
+#                 "created_at",
+#             )
+#         }),
+#     )
 
 
 @admin.register(Reminder)
 class ReminderAdmin(ModelAdmin):
     list_display = ["created_for", "content_type", "object_id", "send_at", "sent", "sent_at"]
-    list_filter = ["sent", "send_at", "method_email", "method_notification"]
+    list_filter = ["sent", "send_at", "method_email"]
     search_fields = ["created_for__username", "created_for__email"]
     readonly_fields = ["content_type", "object_id", "sent_at", "created_at"]
     
@@ -174,8 +174,8 @@ class ReminderAdmin(ModelAdmin):
         }),
         ("Methods", {
             "fields": (
-                "method_email",
-                "method_notification",
+                "method_email"
+               ,
             )
         }),
     )

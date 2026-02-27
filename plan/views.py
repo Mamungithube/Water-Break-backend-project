@@ -10,11 +10,16 @@ from .permissions import IsCoachOrAssistant
 from datetime import datetime
 from django.db.models import Q
 from rest_framework.decorators import action
+from subscription.permissions import CanCreateDrill, CanCreatePlan
+
+# Create your views here.
+
+
 
 class DrillViewSet(viewsets.ModelViewSet):
     queryset = Drill.objects.all()
     serializer_class = DrillSerializer
-    permission_classes = [IsAuthenticated, IsCoachOrAssistant]
+    permission_classes = [IsAuthenticated, IsCoachOrAssistant ,CanCreateDrill]
 
     def get_queryset(self):
         user = self.request.user
@@ -310,7 +315,7 @@ class BlockViewSet(viewsets.ModelViewSet):
 class PlanViewSet(viewsets.ModelViewSet):
     queryset = Plan.objects.all()
     serializer_class = planSerializer
-    permission_classes = [IsAuthenticated, IsCoachOrAssistant]
+    permission_classes = [IsAuthenticated, IsCoachOrAssistant ,CanCreatePlan]
 
     def get_queryset(self):
         user = self.request.user

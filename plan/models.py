@@ -67,16 +67,16 @@ class Block(models.Model):
         return f"{drill_name} - {self.title}"
     
 
-class Notification(models.Model):
-    """Simple in-app notification stored for a user."""
-    user = models.ForeignKey('account.User', on_delete=models.CASCADE, related_name='plan_notifications')
-    title = models.CharField(max_length=255)
-    message = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    read = models.BooleanField(default=False)
+# class Notification(models.Model):
+#     """Simple in-app notification stored for a user."""
+#     user = models.ForeignKey('account.User', on_delete=models.CASCADE, related_name='plan_notifications')
+#     title = models.CharField(max_length=255)
+#     message = models.TextField()
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     read = models.BooleanField(default=False)
 
-    def __str__(self):
-        return f"Notification for {self.user.email}: {self.title}"
+#     def __str__(self):
+#         return f"Notification for {self.user.email}: {self.title}"
 
 
 class Reminder(models.Model):

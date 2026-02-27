@@ -14,10 +14,10 @@ import os
 from dotenv import load_dotenv
 from datetime import timedelta
 
-# ========== 1. BASE_DIR ডিফাইন করুন ==========
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# ========== 2. .env ফাইল লোড করুন ==========
+
 env_path = BASE_DIR / '.env'
 load_dotenv(dotenv_path=env_path)
 
@@ -40,9 +40,9 @@ CORS_ALLOWED_ORIGINS = [
 
 
 # Session settings
-SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # or 'cache'
-SESSION_COOKIE_SAMESITE = 'Lax'  # or None for cross-origin
-SESSION_COOKIE_SECURE = False  # True in production with HTTPS
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SECURE = False
 SESSION_COOKIE_HTTPONLY = True
 SESSION_SAVE_EVERY_REQUEST = True
 
@@ -54,8 +54,6 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     '10.10.10.46',
 ]
-
-CSRF_TRUSTED_ORIGINS = ['https://*.127.0.0.1']
 
 
 AUTH_USER_MODEL = 'account.User'

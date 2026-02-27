@@ -15,6 +15,7 @@ from asgiref.sync import async_to_sync
 from account.models import Notification
 from django.db.models import Q
 from plan.permissions import IsCoachOrAssistant
+from subscription.permissions import CanCreateTeam
 
 # Create your views here.
 """=============================Team view set==========================================="""
@@ -31,7 +32,7 @@ class teamviewset(viewsets.ModelViewSet):
         অন্যান্য action-এ শুধু IsAuthenticated যথেষ্ট
         """
         if self.action == 'create':
-            return [IsAuthenticated(), IsCoachOrAssistant()]
+            return [IsAuthenticated(), IsCoachOrAssistant() , CanCreateTeam()]
         return [IsAuthenticated()]
     
     def get_queryset(self):
@@ -45,6 +46,8 @@ class teamviewset(viewsets.ModelViewSet):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
+    
+    
 
     # ========================== 🔑 Invitation Token ==========================
     @action(detail=True, methods=['get'])
@@ -229,7 +232,8 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
         role = params.get('role')
         team_position = params.get('team_position')
         is_role_approved = params.get('is_role_approved')
-
+        
+        
         if team_param:
             team_ids = team_param.split(',')
             queryset = queryset.filter(team_id__in=team_ids)

@@ -32,12 +32,14 @@ class teamserializers(serializers.ModelSerializer):
     )
     active_invitation_token = serializers.SerializerMethodField()
     members_count = serializers.SerializerMethodField()
+    members = serializers.SerializerMethodField()  # ✅ নতুন ফিল্ড
     
     class Meta:
         model = Team
         fields = [
             'id', 'coach', 'name', 'team_profile_pic',
-            'created_at', 'updated_at', 'active_invitation_token', 'members_count'
+            'created_at', 'updated_at', 'active_invitation_token', 
+            'members_count', 'members'  # ✅ fields-এ যোগ করুন
         ]
         read_only_fields = ['coach', 'created_at', 'updated_at']
     
@@ -50,16 +52,17 @@ class teamserializers(serializers.ModelSerializer):
     def get_members_count(self, obj):
         return obj.memberships.filter(is_role_approved=True).count()
     
+    def get_members(self, obj):  # ✅ নতুন method
+        memberships = obj.memberships.filter(is_role_approved=True).select_related('member__profile')
+        return TeamMemberSerializer(memberships, many=True, context=self.context).data
+    
     def create(self, validated_data):
         validated_data['coach'] = self.context['request'].user
         team = super().create(validated_data)
-        
-        # Automatically create invitation token
         InvitationToken.objects.create(
             team=team,
             coach=self.context['request'].user
         )
-        
         return team
 
 
