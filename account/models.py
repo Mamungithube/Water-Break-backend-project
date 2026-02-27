@@ -111,3 +111,25 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Notification to {self.recipient.email}"
+
+
+class DeviceToken(models.Model):
+    """A record of a device's push token for Firebase Cloud Messaging."""
+
+    PLATFORM_CHOICES = (
+        ('ios', 'iOS'),
+        ('android', 'Android'),
+        ('web', 'Web'),
+    )
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='device_tokens'
+    )
+    token = models.CharField(max_length=512, unique=True)
+    platform = models.CharField(max_length=20, choices=PLATFORM_CHOICES, default='web')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.email} - {self.platform}"

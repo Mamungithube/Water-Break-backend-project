@@ -13,13 +13,12 @@ from .views import (
     DeleteAccountView,
     ProfileDetailsView,
     ProfileUpdateView,
-    NotificationViewSet
+    NotificationViewSet,
+    DeviceTokenViewSet,
 )
 
 router = DefaultRouter()
-# router.register(r'createteams', teamviewset, basename='team')
-# router.register(r'team-members', TeamMemberViewSet)
-# router.register(r'invitation-tokens', InvitationTokenViewSet, basename='invitation-token')
+router.register(r'device-tokens', DeviceTokenViewSet, basename='device-token')
 router.register(r'notifications', NotificationViewSet, basename='notification')
 
 urlpatterns = [

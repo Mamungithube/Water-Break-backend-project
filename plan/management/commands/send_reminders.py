@@ -3,7 +3,8 @@ from django.utils import timezone
 from django.conf import settings
 from django.core.mail import send_mail
 
-from plan.models import Reminder, Notification
+from plan.models import Reminder
+from account.models import Notification
 
 
 class Command(BaseCommand):
@@ -40,10 +41,15 @@ class Command(BaseCommand):
                     # log and continue -- don't block other reminders
                     self.stdout.write(self.style.WARNING(f"Failed sending email to {user.email}: {e}"))
 
-            # create in-app notification
+            # create in-app notification; user receives FCM push via signal
             if r.method_notification:
                 try:
-                    Notification.objects.create(user=user, title=title, message=message)
+                    Notification.objects.create(
+                        recipient=user,
+                        sender=user,  # could be system
+                        notification_type='reminder',
+                        message=message
+                    )
                 except Exception as e:
                     self.stdout.write(self.style.WARNING(f"Failed creating notification for {user}: {e}"))
 

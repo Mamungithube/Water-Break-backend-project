@@ -36,7 +36,14 @@
 
 #         if r.method_notification:
 #             try:
-#                 Notification.objects.create(user=user, title=title, message=message)
+#                 # create Notification record; signal handler will also
+#                 # forward this as an FCM push to the user's devices
+#                 Notification.objects.create(
+#                     recipient=user,
+#                     sender=user,                        # sender can be same user or system
+#                     notification_type='reminder',
+#                     message=message,
+#                 )
 #             except Exception:
 #                 pass
 

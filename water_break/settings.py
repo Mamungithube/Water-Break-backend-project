@@ -20,6 +20,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 env_path = BASE_DIR / '.env'
 load_dotenv(dotenv_path=env_path)
+# path to the Firebase service account JSON file used by firebase-admin
+# you can override via environment variable if needed
+FIREBASE_CREDENTIALS_PATH = os.getenv('FIREBASE_CREDENTIALS_PATH', os.path.join(BASE_DIR, 'serviceAccountKey.json'))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/

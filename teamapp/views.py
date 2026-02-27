@@ -167,27 +167,33 @@ class teamviewset(viewsets.ModelViewSet):
         )
 
     # ========================== ⏳ Pending Members   =========================="""
-    @action(detail=True, methods=['get'])
-    def pending_members(self, request, pk=None):
-        try:
-            team = self.get_object()
-        except Http404:
-            return Response({"detail": "Team not found."}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as exc:
-            return Response({"detail": "Failed to retrieve team.", "error": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    @action(detail=False, methods=['get'], url_path='pending_members')
+    def pending_members(self, request):
 
-        if request.user != team.coach:
-            return Response({"detail": "Only the team coach can view pending members."}, status=status.HTTP_403_FORBIDDEN)
+        if request.user.role != 'coach':
+            return Response(
+                {"detail": "Only the team coach can view pending members."}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         try:
             pending_qs = TeamMember.objects.filter(
-                team=team, is_role_approved=False)
-            serializer = TeamMemberSerializer(
-                pending_qs, many=True, context={"request": request})
-            return Response({"count": pending_qs.count(), "pending_members": serializer.data}, status=status.HTTP_200_OK)
-        except Exception as exc:
-            return Response({"detail": "Failed to fetch pending members.", "error": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                team__coach=request.user, 
+                is_role_approved=False
+            ).select_related('team', 'member')
 
+            serializer = TeamMemberSerializer(
+                pending_qs, many=True, context={"request": request}
+            )
+            return Response(
+                {"count": pending_qs.count(), "pending_members": serializer.data}, 
+                status=status.HTTP_200_OK
+            )
+        except Exception as exc:
+            return Response(
+                {"detail": "Failed to fetch pending members.", "error": str(exc)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 """================================Team Member View set=================================="""
 
@@ -252,55 +258,57 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
 
         return queryset.distinct()
 
-    @action(detail=True, methods=['post'])
-    def approve_member(self, request, pk=None):
+    @action(detail=False, methods=['post'], url_path='handle_request')
+    def handle_request(self, request):
+        membership_id = request.query_params.get('id')
+        action = request.data.get('action')  # 'approve' or 'reject'
+    
+        if not membership_id:
+            return Response(
+                {"detail": "Query param 'id' is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+        if action not in ['approve', 'reject']:
+            return Response(
+                {"detail": "action must be 'approve' or 'reject'."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
         try:
-            membership = TeamMember.objects.get(pk=pk)
+            membership = TeamMember.objects.get(pk=membership_id)
         except TeamMember.DoesNotExist:
-            return Response({"detail": "Membership request not found."}, status=404)
-
+            return Response(
+                {"detail": "Membership not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+    
         if request.user != membership.team.coach:
             return Response(
                 {"detail": f"You are not the coach of team '{membership.team.name}'."},
                 status=status.HTTP_403_FORBIDDEN
             )
-
+    
         if membership.is_role_approved:
             return Response(
-                {"detail": f"Member already approved in team '{membership.team.name}'."},
+                {"detail": "Member is already approved."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-
-        membership.is_role_approved = True
-        membership.save()
-
-        return Response(
-            {"detail": f"Approved for team '{membership.team.name}' successfully."},
-            status=status.HTTP_200_OK
-        )
-
-    @action(detail=True, methods=['post'])
-    def reject_member(self, request, pk=None):
-        membership_obj = self.get_object()
-        team = membership_obj.team
-
-        if request.user != team.coach:
+    
+        if action == 'approve':
+            membership.is_role_approved = True
+            membership.save()
             return Response(
-                {"detail": "Only coach can reject members."},
-                status=status.HTTP_403_FORBIDDEN
+                {"detail": f"Approved successfully in team '{membership.team.name}'."},
+                status=status.HTTP_200_OK
             )
-
-        # Reject/delete the membership targeted by this detail route
-        membership = membership_obj
-        if membership.is_role_approved:
-            return Response({"detail": "Cannot reject an already approved member."}, status=status.HTTP_400_BAD_REQUEST)
-
-        membership.delete()
-
-        return Response(
-            {"detail": "Join request rejected."},
-            status=status.HTTP_200_OK
-        )
+    
+        elif action == 'reject':
+            membership.delete()
+            return Response(
+                {"detail": "Join request rejected."},
+                status=status.HTTP_200_OK
+            )
 
 
 """================================Invitation Token ViewSet=================================="""

@@ -13,7 +13,8 @@ from .serializers import (
     LoginSerializer,
     ProfileSerializer,
     ProfileUpdateSerializer,
-    NotificationSerializer
+    NotificationSerializer,
+    DeviceTokenSerializer,
 )
 from .models import Profile, Notification
 from rest_framework import generics, permissions, status, viewsets
@@ -611,6 +612,18 @@ class ProfileDetailsView(generics.RetrieveAPIView):
         return profile
 
 """------------------------Notification view--------------------------- """
+
+class DeviceTokenViewSet(viewsets.ModelViewSet):
+    """Register/unregister device tokens for the authenticated user."""
+    serializer_class = DeviceTokenSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return self.request.user.device_tokens.all()
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
 
 class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = NotificationSerializer

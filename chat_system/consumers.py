@@ -167,7 +167,7 @@ class TeamChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def save_notification(self, recipient_id, message_data):
         try:
-            Notification.objects.create(
+            notif = Notification.objects.create(
                 recipient_id=recipient_id,
                 sender=self.user,
                 team_id=message_data.get("team_id"),
@@ -177,8 +177,10 @@ class TeamChatConsumer(AsyncWebsocketConsumer):
                 is_read=False
             )
             print(f"✅ Notification saved for user {recipient_id}")
+            return notif
         except Exception as e:
             print(f"❌ Notification save error: {str(e)}")
+            return None
 
     @database_sync_to_async
     def get_team_member_user_ids(self):

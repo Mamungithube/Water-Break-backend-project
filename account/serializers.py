@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .utils import generate_otp
 from django.core.mail import send_mail, EmailMessage
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import User, Profile, Notification
+from .models import User, Profile, Notification, DeviceToken
 from django.contrib.auth import get_user_model, password_validation
 from django.template.loader import render_to_string
 from django.conf import settings
@@ -138,6 +138,15 @@ class NotificationSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'sender', 'created_at']
 
 
+# ==================== DeviceToken Serializer ====================
+
+class DeviceTokenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeviceToken
+        fields = ['id','token','platform','created_at']
+        read_only_fields = ['id','created_at']
+
+
 # ==================== Profile Serializer ====================
 class ProfileSerializer(serializers.ModelSerializer):
     fullname = serializers.SerializerMethodField()
@@ -156,7 +165,6 @@ class ProfileSerializer(serializers.ModelSerializer):
         return getattr(getattr(obj, 'user', None), 'email', '') or ''
 
 
-# ==================== Profile Update Serializer ====================
 class ProfileUpdateSerializer(serializers.ModelSerializer):
     fullname = serializers.CharField(source='user.Fullname', required=False)
 
