@@ -1,55 +1,33 @@
-# from celery import shared_task
-# from django.utils import timezone
-# from django.conf import settings
-# from django.core.mail import send_mail
+# plan/tasks.py
+from celery import shared_task
+from django.utils import timezone
+from .models import Reminder
+from account.models import Notification
 
-# # from .models import Reminder, Notification
+@shared_task(name="send_due_reminders_task")
+def send_due_reminders_task():
+    now = timezone.now()
+    reminders = Reminder.objects.filter(sent=False, send_at__lte=now)
+    
+    for r in reminders:
+        user = r.created_for
+        message = f"Reminder: Your activity '{r.content_object}' is starting soon!"
 
+        # ইন-অ্যাপ নটিফিকেশন তৈরি (এটি তৈরি হওয়ামাত্র account/signals.py পুশ পাঠিয়ে দেবে)
+        Notification.objects.create(
+            recipient=user,
+            sender=user,
+            notification_type='reminder',
+            message=message
+        )
 
-# @shared_task
-# def send_due_reminders_task():
-#     now = timezone.now()
-#     reminders = Reminder.objects.filter(sent=False, send_at__lte=now)
-#     count = 0
-#     for r in reminders:
-#         user = r.created_for
-#         try:
-#             title = f"Reminder: {r.content_object}"
-#         except Exception:
-#             title = "Reminder"
-#         try:
-#             message = f"You have a reminder for {r.content_object}."
-#         except Exception:
-#             message = "You have a reminder."
+        # ইমেইল রিমাইন্ডার (Celery টাস্ক এর ভেতর থেকে আরেকটা টাস্ক কল করা)
+        if r.method_email:
+            from account.tasks import send_email_task
+            send_email_task.delay("Practice Reminder", message, [user.email])
 
-#         if r.method_email and getattr(user, 'email', None):
-#             try:
-#                 send_mail(
-#                     title,
-#                     message,
-#                     getattr(settings, 'DEFAULT_FROM_EMAIL', 'no-reply@example.com'),
-#                     [user.email],
-#                     fail_silently=False,
-#                 )
-#             except Exception:
-#                 pass
-
-#         if r.method_notification:
-#             try:
-#                 # create Notification record; signal handler will also
-#                 # forward this as an FCM push to the user's devices
-#                 Notification.objects.create(
-#                     recipient=user,
-#                     sender=user,                        # sender can be same user or system
-#                     notification_type='reminder',
-#                     message=message,
-#                 )
-#             except Exception:
-#                 pass
-
-#         r.sent = True
-#         r.sent_at = now
-#         r.save()
-#         count += 1
-
-#     return {'processed': count}
+        r.sent = True
+        r.sent_at = now
+        r.save()
+        
+    return f"Processed {reminders.count()} reminders"

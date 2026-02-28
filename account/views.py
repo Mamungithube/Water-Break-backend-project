@@ -196,7 +196,7 @@ class GoogleCallbackView(APIView):
             frontend_url = f"http://localhost:3000/auth/callback?access={str(refresh.access_token)}&refresh={str(refresh)}"
 
             return redirect(frontend_url)
-        
+
         except Exception as e:
             print(f"Google OAuth error: {str(e)}")
             return Response(
@@ -206,6 +206,7 @@ class GoogleCallbackView(APIView):
 
 
 """ ----------------Registration view------------------- """
+
 
 class RegisterApiView(APIView):
     serializer_class = RegistrationSerializer
@@ -220,7 +221,7 @@ class RegisterApiView(APIView):
             )
 
         serializer = self.serializer_class(data=request.data)
-        
+
         # Check serializer validity
         if not serializer.is_valid():
             return Response(
@@ -259,7 +260,7 @@ class RegisterApiView(APIView):
                     },
                     status=status.HTTP_409_CONFLICT,
                 )
-            
+
             # Generic server error for unexpected exceptions
             return Response(
                 {
@@ -273,9 +274,10 @@ class RegisterApiView(APIView):
 
 """ ----------------verify OTP API view------------------- """
 
+
 class VerifyOTPApiView(APIView):
     """OTP verification endpoint.
-    
+
     Expects `email` and `otp` in the request body.
     Activates user account after successful OTP verification.
     """
@@ -376,7 +378,7 @@ class VerifyOTPApiView(APIView):
         try:
             user.is_active = True
             user.save(update_fields=['is_active'])
-            
+
             profile.otp = None
             profile.save(update_fields=['otp'])
 
@@ -435,6 +437,7 @@ class ResendOTPApiView(APIView):
 
 """ ----------------Forgot Password view------------------- """
 
+
 class ForgotPasswordAPIView(APIView):
     serializer_class = ResetPasswordSerializer
 
@@ -459,6 +462,7 @@ class ForgotPasswordAPIView(APIView):
 
 """ -------------------Change Password view----------------------- """
 
+
 class ChangePasswordViewSet(viewsets.GenericViewSet):
     serializer_class = ChangePasswordSerializer
     permission_classes = [IsAuthenticated]
@@ -470,13 +474,15 @@ class ChangePasswordViewSet(viewsets.GenericViewSet):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        serializer = self.get_serializer(data=request.data, context={"request": request})
+        serializer = self.get_serializer(
+            data=request.data, context={"request": request})
 
         try:
             serializer.is_valid(raise_exception=True)
         except Exception as exc:
             return Response(
-                {"success": False, "message": "Invalid input.", "errors": serializer.errors},
+                {"success": False, "message": "Invalid input.",
+                    "errors": serializer.errors},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -486,7 +492,8 @@ class ChangePasswordViewSet(viewsets.GenericViewSet):
 
         if not user.check_password(old_password):
             return Response(
-                {"success": False, "message": "The provided current password is incorrect.", "errors": {"old_password":"Incorrect password.please try again."}},
+                {"success": False, "message": "The provided current password is incorrect.",
+                    "errors": {"old_password": "Incorrect password.please try again."}},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -498,7 +505,8 @@ class ChangePasswordViewSet(viewsets.GenericViewSet):
         except Exception as exc:
             # password_validation raises ValidationError with a list of messages
             return Response(
-                {"success": False, "message": "New password did not meet requirements.", "errors": exc.messages if hasattr(exc, 'messages') else [str(exc)]},
+                {"success": False, "message": "New password did not meet requirements.",
+                    "errors": exc.messages if hasattr(exc, 'messages') else [str(exc)]},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -508,7 +516,8 @@ class ChangePasswordViewSet(viewsets.GenericViewSet):
             user.save()
         except Exception as exc:
             return Response(
-                {"success": False, "message": "Failed to update password. Please try again later."},
+                {"success": False,
+                    "message": "Failed to update password. Please try again later."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -519,6 +528,7 @@ class ChangePasswordViewSet(viewsets.GenericViewSet):
 
 
 """ ----------------Login view------------------- """
+
 
 class LoginAPIView(APIView):
     serializer_class = LoginSerializer
@@ -598,9 +608,8 @@ class DeleteAccountView(APIView):
         )
 
 
-
-
 """------------------------Profile Detail View-----------------------------------"""
+
 
 class ProfileDetailsView(generics.RetrieveAPIView):
     serializer_class = ProfileSerializer
@@ -611,7 +620,9 @@ class ProfileDetailsView(generics.RetrieveAPIView):
             user=self.request.user)
         return profile
 
+
 """------------------------Notification view--------------------------- """
+
 
 class DeviceTokenViewSet(viewsets.ModelViewSet):
     """Register/unregister device tokens for the authenticated user."""
@@ -628,13 +639,12 @@ class DeviceTokenViewSet(viewsets.ModelViewSet):
 class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
         """Filter notifications for the current user, ordered by most recent."""
         try:
-            return Notification.objects.filter(
-                recipient=self.request.user
-            ).order_by('-created_at')
+            return Notification.objects.filter(recipient=self.request.user).order_by('-created_at')
+
         except Exception as e:
             # Return empty queryset on error instead of crashing
             return Notification.objects.none()
@@ -645,7 +655,7 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
             # Get pagination parameters
             page = int(request.GET.get('page', 1))
             page_size = int(request.GET.get('page_size', 10))
-            
+
             # Validate pagination parameters
             if page < 1:
                 return Response(
@@ -656,7 +666,7 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            
+
             if page_size < 1 or page_size > 100:
                 return Response(
                     {
@@ -666,31 +676,34 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            
+
             # Get filter by notification type (optional)
-            notification_type = request.GET.get('notification_type', '').strip()
-            
+            notification_type = request.GET.get(
+                'notification_type', '').strip()
+
             # Get base queryset
             queryset = self.get_queryset()
-            
+
             # Apply type filter if provided
             if notification_type:
                 queryset = queryset.filter(notification_type=notification_type)
-            
+
             # Get unread only filter (optional)
-            unread_only = request.GET.get('unread_only', 'false').lower() == 'true'
+            unread_only = request.GET.get(
+                'unread_only', 'false').lower() == 'true'
             if unread_only:
                 queryset = queryset.filter(is_read=False)
-            
+
             # Calculate pagination
             total_count = queryset.count()
             start = (page - 1) * page_size
             end = start + page_size
             paginated_notifications = queryset[start:end]
-            
+
             # Serialize
-            serializer = self.get_serializer(paginated_notifications, many=True)
-            
+            serializer = self.get_serializer(
+                paginated_notifications, many=True)
+
             return Response(
                 {
                     "success": True,
@@ -705,7 +718,7 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
                 },
                 status=status.HTTP_200_OK,
             )
-        
+
         except ValueError:
             return Response(
                 {
@@ -730,14 +743,14 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
         try:
             # Get the notification
             notification = self.get_queryset().get(pk=pk)
-            
+
             # Mark as read
             if not notification.is_read:
                 notification.is_read = True
                 notification.save(update_fields=['is_read'])
-            
+
             serializer = self.get_serializer(notification)
-            
+
             return Response(
                 {
                     "success": True,
@@ -746,7 +759,7 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
                 },
                 status=status.HTTP_200_OK,
             )
-        
+
         except Notification.DoesNotExist:
             return Response(
                 {
@@ -769,23 +782,26 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
 
 """ ------------------------Profile UpdateView view--------------------------- """
 
+
 class ProfileUpdateView(generics.UpdateAPIView):
     serializer_class = ProfileUpdateSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
         # Get or create profile for the current user
-        profile, created = Profile.objects.get_or_create(user=self.request.user)
-        return profile  
+        profile, created = Profile.objects.get_or_create(
+            user=self.request.user)
+        return profile
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer = self.get_serializer(
+            instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
 
         # Return full profile data after update
-        profile_serializer = ProfileSerializer(instance, context=self.get_serializer_context())
+        profile_serializer = ProfileSerializer(
+            instance, context=self.get_serializer_context())
         return Response(profile_serializer.data)
-    

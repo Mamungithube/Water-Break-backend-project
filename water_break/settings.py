@@ -322,9 +322,11 @@ CHANNEL_LAYERS = {
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0')
 CELERY_RESULT_BACKEND = os.getenv(
     'CELERY_RESULT_BACKEND', 'redis://redis:6379/1')
+
+
 CELERY_BEAT_SCHEDULE = {
-    'send-reminders-periodically': {
-        'task': 'plan.tasks.send_due_reminders_task',
+    'check-reminders-every-minute': {
+        'task': 'send_due_reminders_task',
         'schedule': 300.0,
     },
 }

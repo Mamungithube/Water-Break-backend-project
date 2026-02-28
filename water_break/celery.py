@@ -9,7 +9,7 @@ app = Celery('water_break')
 app.config_from_object('django.conf:settings', namespace='CELERY')
 
 # autodiscover tasks from installed apps
-# app.autodiscover_tasks()
+app.autodiscover_tasks()
 
 @app.task(bind=True)
 def debug_task(self):

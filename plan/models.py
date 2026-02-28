@@ -9,6 +9,8 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.db.models.signals import post_save, m2m_changed
 from django.dispatch import receiver
 
+from django.db.models.signals import m2m_changed
+from account.models import Notification
 
 class Drill(models.Model):
     create_By = models.ForeignKey('account.User', on_delete=models.CASCADE)
@@ -232,3 +234,34 @@ def create_plan_reminders(sender, instance, created, **kwargs):
     if created:
         offset = _get_offset_minutes()
         schedule_reminders_for_object(instance, offset_minutes=offset)
+
+
+
+@receiver(m2m_changed, sender=Plan.assign_team.through)
+def notify_team_on_plan_assignment(sender, instance, action, pk_set, **kwargs):
+    if action == "post_add":
+        for team_id in pk_set:
+            from teamapp.models import TeamMember
+            # টিমের সব অ্যাপ্রুভড মেম্বারদের খুঁজে বের করা
+            memberships = TeamMember.objects.filter(team_id=team_id, is_role_approved=True)
+            for member_ship in memberships:
+                Notification.objects.create(
+                    recipient=member_ship.member,
+                    sender=instance.create_By,
+                    notification_type='assignment',
+                    message=f"A new practice plan '{instance.plan_title}' has been assigned to your team."
+                )
+
+@receiver(m2m_changed, sender=Drill.assign_team.through)
+def notify_team_on_drill_assignment(sender, instance, action, pk_set, **kwargs):
+    if action == "post_add":
+        for team_id in pk_set:
+            from teamapp.models import TeamMember
+            memberships = TeamMember.objects.filter(team_id=team_id, is_role_approved=True)
+            for member_ship in memberships:
+                Notification.objects.create(
+                    recipient=member_ship.member,
+                    sender=instance.create_By,
+                    notification_type='assignment',
+                    message=f"A new drill '{instance.name}' has been assigned to your team."
+                )

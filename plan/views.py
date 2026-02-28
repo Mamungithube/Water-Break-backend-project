@@ -332,8 +332,12 @@ class PlanViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(
                     Plan_Block__drill__assistant_coach=user).distinct()
         else:
-            queryset = queryset.filter(
-                Plan_Block__drill__assigned_members=user).distinct()
+            # Player হলে - তার team এর plans দেখাবে
+            user_teams = user.team_memberships.filter(
+                is_role_approved=True
+            ).values_list('team', flat=True)
+    
+            queryset = queryset.filter(assign_team__in=user_teams).distinct()
 
         # Date filtering
         date_param = self.request.query_params.get('date', None)

@@ -36,11 +36,16 @@ class teamviewset(viewsets.ModelViewSet):
         return [IsAuthenticated()]
     
     def get_queryset(self):
-        """Filter teams based on user role"""
         user = self.request.user
+
         if user.role == 'coach':
             return Team.objects.filter(coach=user)
-        return Team.objects.filter(members=user)
+
+        # members ManyToMany field দিয়ে filter - শুধু approved members
+        return Team.objects.filter(
+            memberships__member=user,
+            memberships__is_role_approved=True
+        ).distinct()
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -298,10 +303,16 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
         if action == 'approve':
             membership.is_role_approved = True
             membership.save()
-            return Response(
-                {"detail": f"Approved successfully in team '{membership.team.name}'."},
-                status=status.HTTP_200_OK
+            
+            # প্লেয়ারকে নটিফিকেশন পাঠানো
+            Notification.objects.create(
+                recipient=membership.member,
+                sender=request.user,
+                team=membership.team,
+                notification_type='request_accepted',
+                message=f"Congratulations! Your request to join team '{membership.team.name}' has been approved."
             )
+            return Response({"detail": "Approved successfully."}, status=status.HTTP_200_OK)
     
         elif action == 'reject':
             membership.delete()
