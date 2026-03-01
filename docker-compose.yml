@@ -1,20 +1,17 @@
-
-
 services:
   db:
     image: postgres:15
     container_name: postgres
     restart: always
     environment:
-      POSTGRES_DB: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # ports expose করা নেই — শুধু internal Docker network এ accessible
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -23,13 +20,12 @@ services:
     image: redis:7
     container_name: redis
     restart: always
-    ports:
-      - "6380:6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    # ports expose করা নেই — শুধু internal Docker network এ accessible
 
   web:
     build: .
     container_name: django_backend
-    # command: daphne -b 0.0.0.0 -p 8000 water_break.asgi:application
     command: >
       sh -c "python manage.py migrate && 
              python -m daphne -b 0.0.0.0 -p 8001 water_break.asgi:application"
@@ -38,9 +34,9 @@ services:
     ports:
       - "8001:8001"
     env_file:
-      - .env 
+      - .env
     environment:
-      - PYTHONUNBUFFERED=1 
+      - PYTHONUNBUFFERED=1
     depends_on:
       db:
         condition: service_healthy
@@ -64,7 +60,7 @@ services:
     build: .
     container_name: celery_beat
     entrypoint: [""]
-    command: celery -A water_break beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    command: celery -A water_break beat --loglevel=error --scheduler django_celery_beat.schedulers:DatabaseScheduler
     volumes:
       - .:/app
     env_file:
