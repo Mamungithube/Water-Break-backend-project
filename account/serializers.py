@@ -6,10 +6,13 @@ from .models import User, Profile, Notification, DeviceToken
 from django.contrib.auth import get_user_model, password_validation
 from django.template.loader import render_to_string
 from django.conf import settings
+from .tasks import send_otp_email_task 
 
 User = get_user_model()
 
 # ==================== User Serializer ====================
+
+
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -18,7 +21,7 @@ class UserSerializer(serializers.ModelSerializer):
             'Fullname': {'required': False},
             'email': {'required': False}
         }
-    
+
     def update(self, instance, validated_data):
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -31,7 +34,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
     confirm_password = serializers.CharField(write_only=True)
 
     class Meta:
-        model = User 
+        model = User
         fields = ['email', 'password', 'confirm_password']
         extra_kwargs = {
             'password': {'write_only': True},
@@ -42,7 +45,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Passwords do not match.")
         password_validation.validate_password(data['password'])
         return data
-    
+
     def create(self, validated_data):
         validated_data.pop('confirm_password')
         user = User.objects.create_user(**validated_data)
@@ -50,29 +53,17 @@ class RegistrationSerializer(serializers.ModelSerializer):
         user.save()
         otp = generate_otp()
         Profile.objects.create(user=user, otp=otp)
-        
-        # Send OTP via email
-        subject = 'Your OTP Code - Verify Your Account'
-        html_content = render_to_string('send_code.html', {'otp': otp, 'user': user}) 
-        
-        try:
-            msg = EmailMessage(
-                subject=subject, 
-                body=html_content, 
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                to=[user.email], 
-            )
-            msg.content_subtype = "html" 
-            msg.send()
-        except Exception as e:         
-            print(f"Failed to send email to {user.email}: {str(e)}")
-            
+
+        # ✅ Async - request block হবে না
+        send_otp_email_task.delay(user.email, otp)
+
         return user
 
-
 # ==================== Reset Password Serializer ====================
+
+
 class ResetPasswordSerializer(serializers.Serializer):
-    email = serializers.EmailField() 
+    email = serializers.EmailField()
     password = serializers.CharField(write_only=True, min_length=8)
     confirm_password = serializers.CharField(write_only=True, min_length=8)
 
@@ -89,12 +80,14 @@ class ChangePasswordSerializer(serializers.Serializer):
     confirm_password = serializers.CharField(required=True, write_only=True)
 
     def validate_new_password(self, value):
-        password_validation.validate_password(value, self.context['request'].user)
+        password_validation.validate_password(
+            value, self.context['request'].user)
         return value
 
     def validate(self, data):
         if data["new_password"] != data["confirm_password"]:
-            raise serializers.ValidationError({"confirm_password": "New password and confirm password do not match."})
+            raise serializers.ValidationError(
+                {"confirm_password": "New password and confirm password do not match."})
         return data
 
 
@@ -120,19 +113,19 @@ class UserLoginSerializer(serializers.ModelSerializer):
         fields = ['email', 'tokens']
 
 
-
-
 # ==================== Notification Serializer ====================
 class NotificationSerializer(serializers.ModelSerializer):
     sender_email = serializers.CharField(source='sender.email', read_only=True)
-    sender_fullname = serializers.CharField(source='sender.Fullname', read_only=True)
-    team_name = serializers.CharField(source='team.name', read_only=True, allow_null=True)
-    
+    sender_fullname = serializers.CharField(
+        source='sender.Fullname', read_only=True)
+    team_name = serializers.CharField(
+        source='team.name', read_only=True, allow_null=True)
+
     class Meta:
         model = Notification
         fields = [
             'id', 'recipient', 'sender', 'sender_email', 'sender_fullname',
-            'team', 'team_name', 'notification_type', 'message', 
+            'team', 'team_name', 'notification_type', 'message',
             'is_read', 'created_at'
         ]
         read_only_fields = ['id', 'sender', 'created_at']
@@ -143,8 +136,8 @@ class NotificationSerializer(serializers.ModelSerializer):
 class DeviceTokenSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeviceToken
-        fields = ['id','token','platform','created_at']
-        read_only_fields = ['id','created_at']
+        fields = ['id', 'token', 'platform', 'created_at']
+        read_only_fields = ['id', 'created_at']
 
 
 # ==================== Profile Serializer ====================
@@ -153,10 +146,9 @@ class ProfileSerializer(serializers.ModelSerializer):
     email = serializers.SerializerMethodField()
     role = serializers.CharField(source='user.role', read_only=True)
 
-
     class Meta:
         model = Profile
-        fields = ['fullname', 'email', 'profile_picture','role']
+        fields = ['fullname', 'email', 'profile_picture', 'role']
 
     def get_fullname(self, obj):
         return getattr(getattr(obj, 'user', None), 'Fullname', '') or ''
@@ -177,7 +169,7 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         if 'Fullname' in user_data:
             instance.user.Fullname = user_data['Fullname']
             instance.user.save()
-        
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
