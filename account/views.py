@@ -528,53 +528,6 @@ class ChangePasswordViewSet(viewsets.GenericViewSet):
 
 
 """ ----------------Login view------------------- """
-
-
-class LoginAPIView(APIView):
-    serializer_class = LoginSerializer
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        serializer = self.serializer_class(data=request.data)
-
-        if serializer.is_valid():
-            email = serializer.validated_data['email']
-            password = serializer.validated_data['password']
-
-            user = authenticate(email=email, password=password)
-
-            if user:
-                if not user.is_active:
-                    return Response(
-                        {'error': 'Account not activated. Verify OTP first!'},
-                        status=status.HTTP_403_FORBIDDEN
-                    )
-
-                login(request, user)
-
-                # Generate JWT tokens
-                refresh = RefreshToken.for_user(user)
-
-                return Response({
-                    'access': str(refresh.access_token),
-                    'refresh': str(refresh),
-                    'user': {
-                        'id': user.id,
-                        'email': user.email,
-                        'Fullname': user.Fullname,
-                        'is_staff': user.is_staff,
-                        "role": user.role
-                    }
-                }, status=status.HTTP_200_OK)
-
-            return Response(
-                {'error': 'Email and password do not match'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
 class BaseResponseMixin:
     def success_response(self, message, data=None, status_code=status.HTTP_200_OK):
         response = {
@@ -591,6 +544,76 @@ class BaseResponseMixin:
             "data": data
         }
         return Response(response, status=status_code)
+
+class LoginAPIView(APIView, BaseResponseMixin):
+    serializer_class = LoginSerializer
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+
+        # ১. ডাটা ভ্যালিডেশন চেক
+        if not serializer.is_valid():
+            return self.error_response(
+                message="Invalid input.",
+                data=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        email = serializer.validated_data['email']
+        password = serializer.validated_data['password']
+
+        # ২. ইমেইল চেক (ইমেইল না থাকলে "Email not found")
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return self.error_response(
+                message="Email not found", # আপনার চাহিদা অনুযায়ী
+                data={"is_active": False},
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        # ৩. পাসওয়ার্ড চেক (পাসওয়ার্ড ভুল হলে "Password wrong")
+        if not user.check_password(password):
+            return self.error_response(
+                message="Password wrong",
+                # data={"is_active": user.is_active},
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ৪. অ্যাকাউন্ট একটিভেশন চেক (is_active না হলে "User not active")
+        if not user.is_active:
+            return self.error_response(
+                message="User not active",
+                data={"email": user.email, "is_active": False},
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+
+        # ৫. সব ঠিক থাকলে সফল লগইন
+        user.backend = 'django.contrib.auth.backends.ModelBackend'
+        login(request, user)
+        
+        refresh = RefreshToken.for_user(user)
+        
+        success_data = {
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': {
+                'id': user.id,
+                'email': user.email,
+                'Fullname': getattr(user, 'Fullname', ''),
+                'is_staff': user.is_staff,
+                "role": getattr(user, 'role', None),
+                'is_active': user.is_active,
+            }
+        }
+
+        return self.success_response(
+            message="Login successful.",
+            data=success_data,
+            status_code=status.HTTP_200_OK
+        )
+
 
 
 """========================= deleted account/views.py code========================="""

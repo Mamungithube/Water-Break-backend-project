@@ -46,3 +46,20 @@ def send_email_task(subject, body, recipient_list, is_html=True):
         return f"Email sent to {recipient_list}"
     except Exception as e:
         return f"Email failed: {str(e)}"
+    
+
+@shared_task(name="send_otp_email")
+def send_otp_email_task(user_email, otp):
+    from django.template.loader import render_to_string
+    subject = 'Your OTP Code - Verify Your Account'
+    html_content = render_to_string('send_code.html', {'otp': otp, 'user': {'email': user_email}})
+    
+    msg = EmailMessage(
+        subject=subject,
+        body=html_content,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[user_email],
+    )
+    msg.content_subtype = "html"
+    msg.send()
+    return f"OTP email sent to {user_email}"

@@ -24,6 +24,7 @@ services:
   web:
     build: .
     container_name: django_backend
+    entrypoint: [""]
     command: >
       sh -c "python manage.py migrate && 
              python -m daphne -b 0.0.0.0 -p 8001 water_break.asgi:application"
