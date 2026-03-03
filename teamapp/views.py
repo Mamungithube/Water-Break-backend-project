@@ -25,16 +25,16 @@ class teamviewset(viewsets.ModelViewSet):
     queryset = Team.objects.all()
     serializer_class = teamserializers
     permission_classes = [IsAuthenticated]
-    
+
     def get_permissions(self):
         """
         Create action শুধুমাত্র Coach বা Assistant করতে পারবে
         অন্যান্য action-এ শুধু IsAuthenticated যথেষ্ট
         """
         if self.action == 'create':
-            return [IsAuthenticated(), IsCoachOrAssistant() , CanCreateTeam()]
+            return [IsAuthenticated(), IsCoachOrAssistant(), CanCreateTeam()]
         return [IsAuthenticated()]
-    
+
     def get_queryset(self):
         user = self.request.user
 
@@ -51,10 +51,9 @@ class teamviewset(viewsets.ModelViewSet):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
-    
-    
 
     # ========================== 🔑 Invitation Token ==========================
+
     @action(detail=True, methods=['get'])
     def invitation_token(self, request, pk=None):
         team = self.get_object()
@@ -177,13 +176,13 @@ class teamviewset(viewsets.ModelViewSet):
 
         if request.user.role != 'coach':
             return Response(
-                {"detail": "Only the team coach can view pending members."}, 
+                {"detail": "Only the team coach can view pending members."},
                 status=status.HTTP_403_FORBIDDEN
             )
 
         try:
             pending_qs = TeamMember.objects.filter(
-                team__coach=request.user, 
+                team__coach=request.user,
                 is_role_approved=False
             ).select_related('team', 'member')
 
@@ -191,33 +190,37 @@ class teamviewset(viewsets.ModelViewSet):
                 pending_qs, many=True, context={"request": request}
             )
             return Response(
-                {"count": pending_qs.count(), "pending_members": serializer.data}, 
+                {"count": pending_qs.count(), "pending_members": serializer.data},
                 status=status.HTTP_200_OK
             )
         except Exception as exc:
             return Response(
-                {"detail": "Failed to fetch pending members.", "error": str(exc)}, 
+                {"detail": "Failed to fetch pending members.",
+                    "error": str(exc)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
 
 """================================Team Member View set=================================="""
 
 
 class TeamMemberViewSet(viewsets.ModelViewSet):
     # queryset = TeamMember.objects.all()
-    queryset = TeamMember.objects.select_related('member__profile', 'team').all()
+    queryset = TeamMember.objects.select_related(
+        'member__profile', 'team').all()
     serializer_class = TeamMemberSerializer
-    permission_classes = [IsAuthenticated ,]
+    permission_classes = [IsAuthenticated,]
 
     def get_queryset(self):
         user = self.request.user
         params = self.request.query_params
-        
+
         # Performance optimization: select_related ব্যবহার করা হয়েছে
-        queryset = TeamMember.objects.select_related('member__profile', 'team').all()
+        queryset = TeamMember.objects.select_related(
+            'member__profile', 'team').all()
 
         # ১. বেস ফিল্টারিং (কে কতটুকু ডাটা দেখতে পারবে)
-        
+
         # ইউজার যদি কোনো টিমে 'assistant' হয় (approved)
         is_assistant_anywhere = TeamMember.objects.filter(
             member=user, role='assistant', is_role_approved=True
@@ -230,7 +233,7 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
             # অ্যাসিস্ট্যান্ট তার নিজের টিমের মেম্বার এবং অন্যান্য অ্যাপ্রুভড মেম্বারদের দেখবে
             # (লজিক আপনার প্রয়োজন অনুযায়ী ছোট-বড় করতে পারেন)
             queryset = queryset.filter(
-                Q(team__memberships__member=user, team__memberships__role='assistant') | 
+                Q(team__memberships__member=user, team__memberships__role='assistant') |
                 Q(is_role_approved=True)
             ).distinct()
         else:
@@ -243,8 +246,7 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
         role = params.get('role')
         team_position = params.get('team_position')
         is_role_approved = params.get('is_role_approved')
-        
-        
+
         if team_param:
             team_ids = team_param.split(',')
             queryset = queryset.filter(team_id__in=team_ids)
@@ -259,7 +261,8 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(team_position__icontains=team_position)
 
         if is_role_approved is not None:
-            queryset = queryset.filter(is_role_approved=is_role_approved.lower() == 'true')
+            queryset = queryset.filter(
+                is_role_approved=is_role_approved.lower() == 'true')
 
         return queryset.distinct()
 
@@ -267,21 +270,64 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
     def handle_request(self, request):
         membership_id = request.query_params.get('id')
         action = request.data.get('action')  # 'approve' or 'reject'
-    
+
         if not membership_id:
             return Response(
                 {"detail": "Query param 'id' is required."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-    
+
         if action not in ['approve', 'reject']:
             return Response(
                 {"detail": "action must be 'approve' or 'reject'."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-    
+
         try:
             membership = TeamMember.objects.get(pk=membership_id)
+        except TeamMember.DoesNotExist:
+            return Response(
+                {"detail": "Membership not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if request.user != membership.team.coach:
+            return Response(
+                {"detail": f"You are not the coach of team '{membership.team.name}'."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if membership.is_role_approved:
+            return Response(
+                {"detail": "Member is already approved."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if action == 'approve':
+            membership.is_role_approved = True
+            membership.save()
+
+            # প্লেয়ারকে নটিফিকেশন পাঠানো
+            Notification.objects.create(
+                recipient=membership.member,
+                sender=request.user,
+                team=membership.team,
+                notification_type='request_accepted',
+                message=f"Congratulations! Your request to join team '{membership.team.name}' has been approved."
+            )
+            return Response({"detail": "Approved successfully."}, status=status.HTTP_200_OK)
+
+        elif action == 'reject':
+            membership.delete()
+            return Response(
+                {"detail": "Join request rejected."},
+                status=status.HTTP_200_OK
+            )
+
+    @action(detail=True, methods=['delete'], url_path='remove_member')
+    def remove_member(self, request, pk=None):
+        try:
+            membership = TeamMember.objects.get(pk=pk)
         except TeamMember.DoesNotExist:
             return Response(
                 {"detail": "Membership not found."},
@@ -294,32 +340,28 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
     
-        if membership.is_role_approved:
+        if membership.member == request.user:
             return Response(
-                {"detail": "Member is already approved."},
+                {"detail": "Coach cannot remove themselves from the team."},
                 status=status.HTTP_400_BAD_REQUEST
             )
     
-        if action == 'approve':
-            membership.is_role_approved = True
-            membership.save()
-            
-            # প্লেয়ারকে নটিফিকেশন পাঠানো
-            Notification.objects.create(
-                recipient=membership.member,
-                sender=request.user,
-                team=membership.team,
-                notification_type='request_accepted',
-                message=f"Congratulations! Your request to join team '{membership.team.name}' has been approved."
-            )
-            return Response({"detail": "Approved successfully."}, status=status.HTTP_200_OK)
+        member = membership.member
+        team = membership.team
+        membership.delete()
     
-        elif action == 'reject':
-            membership.delete()
-            return Response(
-                {"detail": "Join request rejected."},
-                status=status.HTTP_200_OK
-            )
+        Notification.objects.create(
+            recipient=member,
+            sender=request.user,
+            team=team,
+            notification_type='removed_from_team',
+            message=f"You have been removed from team '{team.name}' by the coach."
+        )
+    
+        return Response(
+            {"detail": f"Member '{member.username}' has been removed from team '{team.name}'."},
+            status=status.HTTP_200_OK
+        )
 
 
 """================================Invitation Token ViewSet=================================="""
