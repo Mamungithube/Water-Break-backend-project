@@ -17,7 +17,7 @@ from django.db.models import Q
 from plan.permissions import IsCoachOrAssistant
 from subscription.permissions import CanCreateTeam
 import logging
-
+from rest_framework.exceptions import ValidationError
 logger = logging.getLogger(__name__)
 
 # Create your views here.
@@ -136,14 +136,6 @@ class teamviewset(viewsets.ModelViewSet):
                 message=f"{request.user.email} wants to join {team_member.team.name}"
             )
     
-            # ❌ WebSocket অংশ comment করো
-            # try:
-            #     channel_layer = get_channel_layer()
-            #     async_to_sync(channel_layer.group_send)(...)
-            # except Exception as e:
-            #     logger.warning(f"WebSocket notification failed: {str(e)}")
-    
-            # ✅ Celery task রাখো
             from account.tasks import send_email_task
             send_email_task.delay(
                 subject="New Team Join Request",
@@ -155,6 +147,13 @@ class teamviewset(viewsets.ModelViewSet):
             return Response(
                 {"detail": "Join request sent. Waiting for coach approval."},
                 status=status.HTTP_201_CREATED
+            )
+    
+        except ValidationError as e:
+            # ✅ Serializer validation error → 400
+            return Response(
+                {"detail": e.detail},
+                status=status.HTTP_400_BAD_REQUEST
             )
         except Exception as e:
             logger.error(f"Team join error: {str(e)}")
