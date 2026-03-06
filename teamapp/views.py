@@ -16,6 +16,9 @@ from account.models import Notification
 from django.db.models import Q
 from plan.permissions import IsCoachOrAssistant
 from subscription.permissions import CanCreateTeam
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Create your views here.
 """=============================Team view set==========================================="""
@@ -121,54 +124,67 @@ class teamviewset(viewsets.ModelViewSet):
         serializer = JoinTeamSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        team_member = serializer.save(user=request.user)
-        coach = team_member.team.coach
+        try:
+            team_member = serializer.save(user=request.user)
+            coach = team_member.team.coach
 
-        Notification.objects.create(
-            recipient=coach,
-            sender=request.user,
-            team=team_member.team,
-            notification_type='join_request',
-            message=f"{request.user.email} wants to join your team {team_member.team.name}."
-            f"{team_member.team.name} as {team_member.get_role_display()}."
-        )
+            # Create notification
+            Notification.objects.create(
+                recipient=coach,
+                sender=request.user,
+                team=team_member.team,
+                notification_type='join_request',
+                message=f"{request.user.email} wants to join your team {team_member.team.name} as {team_member.get_role_display()}."
+            )
 
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            f"user_{coach.id}",
-            {
-                "type": "send_notification",
-                "data": {
-                    "type": "join_request",
-                    "team": team_member.team.name,
-                    "user": request.user.email,
-                    "role": team_member.role,
-                    "role_display": team_member.get_role_display(),
-                    "message": (
-                        f"{request.user.email} wants to join as "
-                        f"{team_member.get_role_display()}"
-                    )
-                }
-            }
-        )
+            # Send WebSocket notification asynchronously
+            try:
+                channel_layer = get_channel_layer()
+                async_to_sync(channel_layer.group_send)(
+                    f"user_{coach.id}",
+                    {
+                        "type": "send_notification",
+                        "data": {
+                            "type": "join_request",
+                            "team": team_member.team.name,
+                            "user": request.user.email,
+                            "role": team_member.role,
+                            "role_display": team_member.get_role_display(),
+                            "message": (
+                                f"{request.user.email} wants to join as "
+                                f"{team_member.get_role_display()}"
+                            )
+                        }
+                    }
+                )
+            except Exception as e:
+                # Log WebSocket error but don't crash
+                logger.warning(f"WebSocket notification failed: {str(e)}")
 
-        send_mail(
-            subject="New Team Join Request",
-            message=(
-                f"{request.user.email} wants to join your team "
-                f"'{team_member.team.name}' as "
-                f"{team_member.get_role_display()}.\n\n"
-                "Please login to approve or reject the request."
-            ),
-            from_email=settings.EMAIL_HOST_USER,
-            recipient_list=[coach.email],
-            fail_silently=True,
-        )
+            # Send email asynchronously via Celery
+            from account.tasks import send_email_task
+            send_email_task.delay(
+                subject="New Team Join Request",
+                body=(
+                    f"<p>{request.user.email} wants to join your team "
+                    f"'{team_member.team.name}' as "
+                    f"{team_member.get_role_display()}.</p>\n\n"
+                    f"<p>Please login to approve or reject the request.</p>"
+                ),
+                recipient_list=[coach.email],
+                is_html=True
+            )
 
-        return Response(
-            {"detail": "Join request sent. Waiting for coach approval."},
-            status=status.HTTP_201_CREATED
-        )
+            return Response(
+                {"detail": "Join request sent. Waiting for coach approval."},
+                status=status.HTTP_201_CREATED
+            )
+        except Exception as e:
+            logger.error(f"Team join error: {str(e)}")
+            return Response(
+                {"detail": f"An error occurred: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     # ========================== ⏳ Pending Members   =========================="""
     @action(detail=False, methods=['get'], url_path='pending_members')
