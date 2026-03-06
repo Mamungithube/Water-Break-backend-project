@@ -123,58 +123,35 @@ class teamviewset(viewsets.ModelViewSet):
     def join_with_token(self, request):
         serializer = JoinTeamSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
+    
         try:
             team_member = serializer.save(user=request.user)
             coach = team_member.team.coach
-
-            # Create notification
+    
             Notification.objects.create(
                 recipient=coach,
                 sender=request.user,
                 team=team_member.team,
                 notification_type='join_request',
-                message=f"{request.user.email} wants to join your team {team_member.team.name} as {team_member.get_role_display()}."
+                message=f"{request.user.email} wants to join {team_member.team.name}"
             )
-
-            # Send WebSocket notification asynchronously
-            try:
-                channel_layer = get_channel_layer()
-                async_to_sync(channel_layer.group_send)(
-                    f"user_{coach.id}",
-                    {
-                        "type": "send_notification",
-                        "data": {
-                            "type": "join_request",
-                            "team": team_member.team.name,
-                            "user": request.user.email,
-                            "role": team_member.role,
-                            "role_display": team_member.get_role_display(),
-                            "message": (
-                                f"{request.user.email} wants to join as "
-                                f"{team_member.get_role_display()}"
-                            )
-                        }
-                    }
-                )
-            except Exception as e:
-                # Log WebSocket error but don't crash
-                logger.warning(f"WebSocket notification failed: {str(e)}")
-
-            # Send email asynchronously via Celery
+    
+            # ❌ WebSocket অংশ comment করো
+            # try:
+            #     channel_layer = get_channel_layer()
+            #     async_to_sync(channel_layer.group_send)(...)
+            # except Exception as e:
+            #     logger.warning(f"WebSocket notification failed: {str(e)}")
+    
+            # ✅ Celery task রাখো
             from account.tasks import send_email_task
             send_email_task.delay(
                 subject="New Team Join Request",
-                body=(
-                    f"<p>{request.user.email} wants to join your team "
-                    f"'{team_member.team.name}' as "
-                    f"{team_member.get_role_display()}.</p>\n\n"
-                    f"<p>Please login to approve or reject the request.</p>"
-                ),
+                body=f"<p>{request.user.email} wants to join '{team_member.team.name}'</p>",
                 recipient_list=[coach.email],
                 is_html=True
             )
-
+    
             return Response(
                 {"detail": "Join request sent. Waiting for coach approval."},
                 status=status.HTTP_201_CREATED
@@ -185,7 +162,6 @@ class teamviewset(viewsets.ModelViewSet):
                 {"detail": f"An error occurred: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
     # ========================== ⏳ Pending Members   =========================="""
     @action(detail=False, methods=['get'], url_path='pending_members')
     def pending_members(self, request):
