@@ -134,20 +134,26 @@ class TeamMemberSerializer(serializers.ModelSerializer):
 class JoinTeamSerializer(serializers.Serializer):
     token = serializers.CharField(max_length=10)
     role = serializers.ChoiceField(choices=TeamMember.ROLE_CHOICES)
-    team_position = serializers.CharField(max_length=25, required=True, allow_blank=False)
-    def validate_token(self, value):
-        try:
-            invitation = InvitationToken.objects.get(token=value.upper())
-            if not invitation.is_valid():
-                raise serializers.ValidationError("This invitation token has expired or is inactive.")
-            return value.upper()
-        except InvitationToken.DoesNotExist:
-            raise serializers.ValidationError("Invalid invitation token.")
     
+    # এখানে পরিবর্তন করুন:
+    team_position = serializers.CharField(
+        max_length=25, 
+        required=False,     # এটি এখন আর বাধ্যতামূলক নয়
+        allow_blank=True,   # খালি স্ট্রিংও গ্রহণ করবে
+        allow_null=True     # নাল ভ্যালুও গ্রহণ করবে
+    )
+
+    def validate_token(self, value):
+        # ... আপনার আগের কোড ...
+        pass
+
     def save(self, user):
         token = self.validated_data['token']
         role = self.validated_data['role']
-        team_position = self.validated_data['team_position']
+        
+        # .get() ব্যবহার করুন যাতে ডাটা না পাঠালে এরর না খায়
+        team_position = self.validated_data.get('team_position', None) 
+        
         invitation = InvitationToken.objects.get(token=token)
         
         if invitation.team.coach == user:

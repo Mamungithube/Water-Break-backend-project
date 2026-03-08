@@ -66,6 +66,7 @@ class Profile(models.Model):
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name='profile')
     otp = models.CharField(max_length=4, blank=True, null=True)
+    otp_created_at = models.DateTimeField(blank=True, null=True)
     profile_picture = models.ImageField(
         upload_to='profiles/', blank=True, null=True)
     is_verified = models.BooleanField(default=True)

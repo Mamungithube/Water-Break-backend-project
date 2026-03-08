@@ -30,6 +30,8 @@ from django.db.models import Q  # For search
 from rest_framework.decorators import action
 from django.conf import settings
 from django.core.mail import EmailMessage
+from datetime import timedelta
+from django.utils import timezone
 User = get_user_model()
 
 
@@ -363,6 +365,19 @@ class VerifyOTPApiView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Check if OTP has expired (1 minute validity)
+        if profile.otp_created_at:
+            elapsed_time = timezone.now() - profile.otp_created_at
+            if elapsed_time > timedelta(minutes=1):
+                return Response(
+                    {
+                        "success": False,
+                        "message": "OTP has expired. Please request a new OTP.",
+                        "errors": {"otp": ["OTP validity expired (1 minute)."]},
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         # Verify OTP (case-insensitive for safety)
         if profile.otp.strip().upper() != otp.upper():
             return Response(
@@ -380,7 +395,8 @@ class VerifyOTPApiView(APIView):
             user.save(update_fields=['is_active'])
 
             profile.otp = None
-            profile.save(update_fields=['otp'])
+            profile.otp_created_at = None
+            profile.save(update_fields=['otp', 'otp_created_at'])
 
             return Response(
                 {
