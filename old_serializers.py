@@ -1,24 +1,22 @@
 from rest_framework import serializers
-from .models import TeamMember, InvitationToken, Team
+from .models import TeamMember, InvitationToken , Team
 from django.contrib.auth import get_user_model
 User = get_user_model()
 
 # ==================== Invitation Token Serializer ====================
-
-
 class InvitationTokenSerializer(serializers.ModelSerializer):
     team_name = serializers.CharField(source='team.name', read_only=True)
     coach_email = serializers.CharField(source='coach.email', read_only=True)
     is_valid = serializers.SerializerMethodField()
-
+    
     class Meta:
         model = InvitationToken
         fields = [
-            'id', 'team', 'team_name', 'coach', 'coach_email',
+            'id', 'team', 'team_name', 'coach', 'coach_email', 
             'token', 'expires_at', 'created_at', 'is_active', 'is_valid'
         ]
         read_only_fields = ['token', 'coach', 'created_at']
-
+    
     def get_is_valid(self, obj):
         return obj.is_valid()
 
@@ -26,13 +24,13 @@ class InvitationTokenSerializer(serializers.ModelSerializer):
 # ==================== Team Serializer ====================
 class teamserializers(serializers.ModelSerializer):
     coach = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.filter(role='coach'),
+        queryset=User.objects.filter(role='coach'), 
         required=False,
         allow_null=True
     )
     active_invitation_token = serializers.SerializerMethodField()
     members_count = serializers.SerializerMethodField()
-
+    
     class Meta:
         model = Team
         fields = [
@@ -40,36 +38,34 @@ class teamserializers(serializers.ModelSerializer):
             'created_at', 'updated_at', 'active_invitation_token', 'members_count'
         ]
         read_only_fields = ['coach', 'created_at', 'updated_at']
-
+    
     def get_active_invitation_token(self, obj):
         token = obj.get_active_token()
         if token:
             return InvitationTokenSerializer(token, context=self.context).data
         return None
-
+    
     def get_members_count(self, obj):
         return obj.memberships.filter(is_role_approved=True).count()
-
+    
     def create(self, validated_data):
         validated_data['coach'] = self.context['request'].user
         team = super().create(validated_data)
-
+        
         # Automatically create invitation token
         InvitationToken.objects.create(
             team=team,
             coach=self.context['request'].user
         )
-
+        
         return team
 
 
 # ==================== Team Member Serializer ====================
 class TeamMemberSerializer(serializers.ModelSerializer):
-    member_email = serializers.EmailField(
-        source='member.email', read_only=True)
+    member_email = serializers.EmailField(source='member.email', read_only=True)
     member_name = serializers.SerializerMethodField()
-    role_display = serializers.CharField(
-        source='get_role_display', read_only=True)
+    role_display = serializers.CharField(source='get_role_display', read_only=True)
     team_name = serializers.CharField(source='team.name', read_only=True)
 
     class Meta:
@@ -79,13 +75,16 @@ class TeamMemberSerializer(serializers.ModelSerializer):
             'role', 'role_display', 'is_role_approved', 'joined_at'
         ]
         read_only_fields = ['is_role_approved', 'joined_at', 'member_email']
-
+        
         # এখানে team_position কে স্পষ্টভাবে রিকোয়ার্ড করে দিন
         extra_kwargs = {
             'team_position': {
-                'required': False,
-                'allow_blank': True,
-                'allow_null': True,
+                'required': True,
+                'allow_blank': False,
+                'error_messages': {
+                    'required': 'Position is required.',
+                    'blank': 'Position cannot be empty.'
+                }
             }
         }
 
@@ -102,14 +101,12 @@ class TeamMemberSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"team_position": "This field is required."})
 
         if team and member and team.coach == member:
-            raise serializers.ValidationError(
-                "Coach cannot join their own team as a member.")
-
+            raise serializers.ValidationError("Coach cannot join their own team as a member.")
+        
         if team and member:
             if TeamMember.objects.filter(team=team, member=member).exists():
-                raise serializers.ValidationError(
-                    "This member is already part of the team.")
-
+                raise serializers.ValidationError("This member is already part of the team.")
+        
         return attrs
 
 
@@ -117,37 +114,28 @@ class TeamMemberSerializer(serializers.ModelSerializer):
 class JoinTeamSerializer(serializers.Serializer):
     token = serializers.CharField(max_length=10)
     role = serializers.ChoiceField(choices=TeamMember.ROLE_CHOICES)
-    team_position = serializers.CharField(
-        max_length=25,
-        required=False,
-        allow_blank=True,
-        allow_null=True
-    )
-
+    team_position = serializers.CharField(max_length=25, required=True, allow_blank=False)
     def validate_token(self, value):
         try:
             invitation = InvitationToken.objects.get(token=value.upper())
             if not invitation.is_valid():
-                raise serializers.ValidationError(
-                    "This invitation token has expired or is inactive.")
+                raise serializers.ValidationError("This invitation token has expired or is inactive.")
             return value.upper()
         except InvitationToken.DoesNotExist:
             raise serializers.ValidationError("Invalid invitation token.")
-
+    
     def save(self, user):
         token = self.validated_data['token']
         role = self.validated_data['role']
-        team_position = self.validated_data.get('team_position', None)
+        team_position = self.validated_data['team_position']
         invitation = InvitationToken.objects.get(token=token)
-
+        
         if invitation.team.coach == user:
-            raise serializers.ValidationError(
-                "Coach cannot join their own team.")
-
+            raise serializers.ValidationError("Coach cannot join their own team.")
+        
         if TeamMember.objects.filter(team=invitation.team, member=user).exists():
-            raise serializers.ValidationError(
-                "You are already requested to be a member of this team.")
-
+            raise serializers.ValidationError("You are already requested to be a member of this team.")
+        
         team_member = TeamMember.objects.create(
             team=invitation.team,
             member=user,
@@ -155,5 +143,5 @@ class JoinTeamSerializer(serializers.Serializer):
             team_position=team_position,
             is_role_approved=False
         )
-
+        
         return team_member
