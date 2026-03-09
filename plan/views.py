@@ -6,7 +6,7 @@ from .models import Drill, Block, Plan
 from .serializers import DrillSerializer, BlockSerializer, planSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from .permissions import IsCoachOrAssistant, IsCoachOnly ,IsCoachOrAssistantForBlock
+from .permissions import IsCoachOnly ,IsCoachOrAssistantForBlock
 from datetime import datetime
 from django.db.models import Q
 from rest_framework.decorators import action
