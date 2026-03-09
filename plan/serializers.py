@@ -126,18 +126,40 @@ class BlockSerializer(serializers.ModelSerializer):
     def validate_drill(self, value):
         user = self.context['request'].user
         if value and value.create_By != user:
-            raise serializers.ValidationError(
-                "You can only create blocks for your own drills."
-            )
+            # ✅ Assistant check — drill এর assistant_coach হলেও চলবে
+            if value.assistant_coach != user:
+                raise serializers.ValidationError(
+                    "You can only create blocks for your own drills."
+                )
         return value
 
     def validate_practice_plan(self, value):
         if value:
             user = self.context['request'].user
-            if value.create_By != user:
-                raise serializers.ValidationError(
-                    "You can only assign blocks to your own practice plans."
-                )
+    
+            # ✅ Coach হলে — নিজের plan হতে হবে
+            if user.role == 'coach':
+                if value.create_By != user:
+                    raise serializers.ValidationError(
+                        "You can only assign blocks to your own practice plans."
+                    )
+    
+            # ✅ Assistant হলে — plan এর team এ assistant হিসেবে থাকলেই চলবে
+            elif user.role == 'assistant':
+                from teamapp.models import TeamMember
+                plan_team_ids = value.assign_team.values_list('id', flat=True)
+                is_in_team = TeamMember.objects.filter(
+                    member=user,
+                    team_id__in=plan_team_ids,
+                    role='assistant',
+                    is_role_approved=True
+                ).exists()
+    
+                if not is_in_team:
+                    raise serializers.ValidationError(
+                        "You can only assign blocks to practice plans of your team."
+                    )
+    
         return value
 
     def validate(self, attrs):
