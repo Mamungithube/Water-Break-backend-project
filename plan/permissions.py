@@ -28,21 +28,46 @@ class IsCoachOnly(permissions.BasePermission):
 # ✅ Coach + Assistant Block এর জন্য
 class IsCoachOrAssistantForBlock(permissions.BasePermission):
     def has_permission(self, request, view):
-        
         user = request.user
         if not user or not user.is_authenticated:
             return False
         if request.method in permissions.SAFE_METHODS:
             return True
-        # Coach অথবা Assistant উভয়ই Block write করতে পারবে
         return user.role == 'coach' or is_assistant(user)
 
     def has_object_permission(self, request, view, obj):
         user = request.user
+
+        # ✅ সবাই GET করতে পারবে
         if request.method in permissions.SAFE_METHODS:
             return True
+
+        # ✅ Coach — নিজের drill এর block edit করতে পারবে
         if user.role == 'coach':
-            return obj.drill.create_By == user
+            if obj.drill:
+                return obj.drill.create_By == user
+            return obj.create_By == user
+
+        # ✅ Assistant — নিজের team এর plan এর block edit করতে পারবে
         if is_assistant(user):
-            return obj.drill.assistant_coach == user
+            from teamapp.models import TeamMember
+
+            # drill এর assistant_coach হলে
+            if obj.drill and obj.drill.assistant_coach == user:
+                return True
+
+            # অথবা plan এর team এ assistant হলে
+            if obj.practice_plan:
+                plan_team_ids = obj.practice_plan.assign_team.values_list(
+                    'id', flat=True
+                )
+                return TeamMember.objects.filter(
+                    member=user,
+                    team_id__in=plan_team_ids,
+                    role='assistant',
+                    is_role_approved=True
+                ).exists()
+
+            return False
+
         return False
