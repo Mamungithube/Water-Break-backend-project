@@ -6,7 +6,7 @@ from .models import Drill, Block, Plan
 from .serializers import DrillSerializer, BlockSerializer, planSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from .permissions import IsCoachOrAssistant
+from .permissions import IsCoachOrAssistant, IsCoachOnly ,IsCoachOrAssistantForBlock
 from datetime import datetime
 from django.db.models import Q
 from rest_framework.decorators import action
@@ -19,7 +19,7 @@ from subscription.permissions import CanCreateDrill, CanCreatePlan
 class DrillViewSet(viewsets.ModelViewSet):
     queryset = Drill.objects.all()
     serializer_class = DrillSerializer
-    permission_classes = [IsAuthenticated, IsCoachOrAssistant ,CanCreateDrill]
+    permission_classes = [IsAuthenticated, IsCoachOnly]
 
     def get_queryset(self):
         user = self.request.user
@@ -150,7 +150,7 @@ class DrillViewSet(viewsets.ModelViewSet):
 class BlockViewSet(viewsets.ModelViewSet):
     queryset = Block.objects.all()
     serializer_class = BlockSerializer
-    permission_classes = [IsAuthenticated, IsCoachOrAssistant]
+    permission_classes = [IsAuthenticated, IsCoachOrAssistantForBlock]
 
     def get_queryset(self):
         user = self.request.user
@@ -315,7 +315,7 @@ class BlockViewSet(viewsets.ModelViewSet):
 class PlanViewSet(viewsets.ModelViewSet):
     queryset = Plan.objects.all()
     serializer_class = planSerializer
-    permission_classes = [IsAuthenticated, IsCoachOrAssistant ,CanCreatePlan]
+    permission_classes = [IsAuthenticated, IsCoachOnly]
 
     def get_queryset(self):
         user = self.request.user
