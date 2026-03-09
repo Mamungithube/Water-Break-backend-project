@@ -544,6 +544,8 @@ class ChangePasswordViewSet(viewsets.GenericViewSet):
 
 
 """ ----------------Login view------------------- """
+
+
 class BaseResponseMixin:
     def success_response(self, message, data=None, status_code=status.HTTP_200_OK):
         response = {
@@ -560,6 +562,7 @@ class BaseResponseMixin:
             "data": data
         }
         return Response(response, status=status_code)
+
 
 class LoginAPIView(APIView, BaseResponseMixin):
     serializer_class = LoginSerializer
@@ -584,7 +587,7 @@ class LoginAPIView(APIView, BaseResponseMixin):
             user = User.objects.get(email=email)
         except User.DoesNotExist:
             return self.error_response(
-                message="Email not found", # আপনার চাহিদা অনুযায়ী
+                message="Email not found",  # আপনার চাহিদা অনুযায়ী
                 data={"is_active": False},
                 status_code=status.HTTP_404_NOT_FOUND
             )
@@ -608,9 +611,9 @@ class LoginAPIView(APIView, BaseResponseMixin):
         # ৫. সব ঠিক থাকলে সফল লগইন
         user.backend = 'django.contrib.auth.backends.ModelBackend'
         login(request, user)
-        
+
         refresh = RefreshToken.for_user(user)
-        
+
         success_data = {
             'access': str(refresh.access_token),
             'refresh': str(refresh),
@@ -629,7 +632,6 @@ class LoginAPIView(APIView, BaseResponseMixin):
             data=success_data,
             status_code=status.HTTP_200_OK
         )
-
 
 
 """========================= deleted account/views.py code========================="""
@@ -680,143 +682,140 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Filter notifications for the current user, ordered by most recent."""
         try:
-            return Notification.objects.filter(recipient=self.request.user).order_by('-created_at')
-
-        except Exception as e:
-            # Return empty queryset on error instead of crashing
+            return Notification.objects.filter(
+                recipient=self.request.user
+            ).order_by('-created_at')
+        except Exception:
             return Notification.objects.none()
 
     def list(self, request, *args, **kwargs):
-        """Retrieve all notifications for the authenticated user."""
+        """সব notification আনবে + সব is_read = true করবে, কিন্তু response এ আগের state যাবে।"""
         try:
-            # Get pagination parameters
             page = int(request.GET.get('page', 1))
             page_size = int(request.GET.get('page_size', 10))
 
-            # Validate pagination parameters
             if page < 1:
-                return Response(
-                    {
-                        "success": False,
-                        "message": "Invalid page number.",
-                        "errors": {"page": ["Page must be greater than 0."]},
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                return Response({
+                    "success": False,
+                    "message": "Invalid page number.",
+                    "errors": {"page": ["Page must be greater than 0."]},
+                }, status=status.HTTP_400_BAD_REQUEST)
 
             if page_size < 1 or page_size > 100:
-                return Response(
-                    {
-                        "success": False,
-                        "message": "Invalid page size.",
-                        "errors": {"page_size": ["Page size must be between 1 and 100."]},
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                return Response({
+                    "success": False,
+                    "message": "Invalid page size.",
+                    "errors": {"page_size": ["Page size must be between 1 and 100."]},
+                }, status=status.HTTP_400_BAD_REQUEST)
 
-            # Get filter by notification type (optional)
-            notification_type = request.GET.get(
-                'notification_type', '').strip()
+            notification_type = request.GET.get('notification_type', '').strip()
+            unread_only = request.GET.get('unread_only', 'false').lower() == 'true'
 
-            # Get base queryset
             queryset = self.get_queryset()
 
-            # Apply type filter if provided
             if notification_type:
                 queryset = queryset.filter(notification_type=notification_type)
-
-            # Get unread only filter (optional)
-            unread_only = request.GET.get(
-                'unread_only', 'false').lower() == 'true'
             if unread_only:
                 queryset = queryset.filter(is_read=False)
 
-            # Calculate pagination
             total_count = queryset.count()
             start = (page - 1) * page_size
             end = start + page_size
             paginated_notifications = queryset[start:end]
 
-            # Serialize
-            serializer = self.get_serializer(
-                paginated_notifications, many=True)
+            # ✅ আগে serialize করো (আগের state capture)
+            serializer = self.get_serializer(paginated_notifications, many=True)
+            response_data = serializer.data
 
-            return Response(
-                {
-                    "success": True,
-                    "message": "Notifications retrieved successfully.",
-                    "data": {
-                        "total": total_count,
-                        "page": page,
-                        "page_size": page_size,
-                        "total_pages": (total_count + page_size - 1) // page_size,
-                        "notifications": serializer.data,
-                    },
+            # ✅ তারপর সব unread গুলো bulk update করো
+            self.get_queryset().filter(is_read=False).update(is_read=True)
+
+            return Response({
+                "success": True,
+                "message": "Notifications retrieved successfully.",
+                "data": {
+                    "total": total_count,
+                    "page": page,
+                    "page_size": page_size,
+                    "total_pages": (total_count + page_size - 1) // page_size,
+                    "notifications": response_data,  # ✅ আগের state
                 },
-                status=status.HTTP_200_OK,
-            )
+            }, status=status.HTTP_200_OK)
 
         except ValueError:
-            return Response(
-                {
-                    "success": False,
-                    "message": "Invalid pagination parameters.",
-                    "errors": {"detail": ["Page and page_size must be valid integers."]},
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response({
+                "success": False,
+                "message": "Invalid pagination parameters.",
+                "errors": {"detail": ["Page and page_size must be valid integers."]},
+            }, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            return Response(
-                {
-                    "success": False,
-                    "message": "Failed to retrieve notifications. Please try again later.",
-                    "errors": {"detail": [str(e)]},
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            return Response({
+                "success": False,
+                "message": "Failed to retrieve notifications. Please try again later.",
+                "errors": {"detail": [str(e)]},
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # ✅ নতুন API — unread count
+    @action(detail=False, methods=['get'], url_path='unread-count')
+    def unread_count(self, request):
+        """GET /notifications/unread-count/ — is_read=false এর সংখ্যা দেবে।"""
+        try:
+            count = self.get_queryset().filter(is_read=False).count()
+            return Response({
+                "success": True,
+                "message": "Unread notification count retrieved successfully.",
+                "data": {
+                    "unread_count": count
+                }
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": "Failed to retrieve unread count.",
+                "errors": {"detail": [str(e)]},
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['patch'], url_path='mark-all-read')
+    def mark_all_read(self, request):
+        updated_count = self.get_queryset().filter(
+            is_read=False
+        ).update(is_read=True)
+        return Response({
+            "success": True,
+            "message": f"{updated_count} notifications marked as read.",
+            "data": {"updated_count": updated_count}
+        }, status=status.HTTP_200_OK)
 
     def retrieve(self, request, pk=None, *args, **kwargs):
-        """Retrieve a single notification by ID."""
         try:
-            # Get the notification
             notification = self.get_queryset().get(pk=pk)
 
-            # Mark as read
+            serializer = self.get_serializer(notification)
+            response_data = serializer.data
+
             if not notification.is_read:
                 notification.is_read = True
                 notification.save(update_fields=['is_read'])
 
-            serializer = self.get_serializer(notification)
-
-            return Response(
-                {
-                    "success": True,
-                    "message": "Notification retrieved successfully.",
-                    "data": serializer.data,
-                },
-                status=status.HTTP_200_OK,
-            )
+            return Response({
+                "success": True,
+                "message": "Notification retrieved successfully.",
+                "data": response_data,
+            }, status=status.HTTP_200_OK)
 
         except Notification.DoesNotExist:
-            return Response(
-                {
-                    "success": False,
-                    "message": "Notification not found.",
-                    "errors": {"id": ["Notification with this ID does not exist."]},
-                },
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            return Response({
+                "success": False,
+                "message": "Notification not found.",
+                "errors": {"id": ["Notification with this ID does not exist."]},
+            }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            return Response(
-                {
-                    "success": False,
-                    "message": "Failed to retrieve notification. Please try again later.",
-                    "errors": {"detail": [str(e)]},
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            return Response({
+                "success": False,
+                "message": "Failed to retrieve notification. Please try again later.",
+                "errors": {"detail": [str(e)]},
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 """ ------------------------Profile UpdateView view--------------------------- """
