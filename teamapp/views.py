@@ -14,7 +14,6 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from account.models import Notification
 from django.db.models import Q
-from plan.permissions import IsCoachOrAssistant
 from subscription.permissions import CanCreateTeam
 import logging
 from rest_framework.exceptions import ValidationError
