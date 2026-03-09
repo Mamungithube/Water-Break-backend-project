@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 # Create your views here.
 from rest_framework import viewsets
 from .models import Privacy_Policy, TermsAndConditions, AboutUs
@@ -7,18 +7,18 @@ from .serializers import PrivacyPolicySerializer, TermsAndConditionsSerializer, 
 
 
 class PrivacyPolicyViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     queryset = Privacy_Policy.objects.all().order_by('-updated_at')
     serializer_class = PrivacyPolicySerializer
 
 
 class TermsAndConditionsViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     queryset = TermsAndConditions.objects.all().order_by('-updated_at')
     serializer_class = TermsAndConditionsSerializer
 
 
 class AboutUsViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     queryset = AboutUs.objects.all().order_by('-updated_at')
     serializer_class = AboutUsSerializer
