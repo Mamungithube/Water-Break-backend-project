@@ -154,26 +154,23 @@ class BlockViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-
-        if user.role == 'coach':
-            return Block.objects.filter(
-                Q(drill__create_By=user) |
-                Q(practice_plan__create_By=user)
-            ).distinct()
-
-        elif user.role == 'assistant':
+        
+        if user.role == 'assistant':
             from teamapp.models import TeamMember
-
-            assistant_team_ids = TeamMember.objects.filter(
+            
+            assistant_team_ids = list(TeamMember.objects.filter(
                 member=user,
                 role='assistant',
                 is_role_approved=True
-            ).values_list('team_id', flat=True)
-
+            ).values_list('team_id', flat=True))
+            
+            print(f"DEBUG: assistant_team_ids = {assistant_team_ids}")  # check করুন
+            print(f"DEBUG: user = {user}, role = {user.role}")
+            
             return Block.objects.filter(
                 Q(drill__assistant_coach=user) |
                 Q(drill__create_By=user) |
-                Q(practice_plan__assign_team__in=assistant_team_ids) 
+                Q(practice_plan__assign_team__in=assistant_team_ids)
             ).distinct()
 
         else:
