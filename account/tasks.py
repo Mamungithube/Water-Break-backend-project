@@ -5,6 +5,7 @@ from .fcm import send_push_to_tokens  # আপনার existing FCM logic
 import logging
 from django.core.mail import EmailMessage
 from django.conf import settings
+from django.template.loader import render_to_string
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ def send_otp_email_task(user_email, otp):
         resend.api_key = settings.RESEND_API_KEY
 
         html_content = render_to_string(
-            'send_code.html', 
+            'send_code.html',
             {'otp': otp, 'user': {'email': user_email}}
         )
 
