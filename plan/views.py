@@ -155,27 +155,27 @@ class BlockViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         from teamapp.models import TeamMember
-    
+
         assistant_team_ids = TeamMember.objects.filter(
             member=user,
             role='assistant',
             is_role_approved=True
         ).values_list('team_id', flat=True)
-    
+
         is_team_assistant = assistant_team_ids.exists()
-    
+
         if user.role == 'coach':
             return Block.objects.filter(
                 Q(drill__create_By=user) |
                 Q(practice_plan__create_By=user)
             ).distinct()
-    
+
         elif is_team_assistant:
             return Block.objects.filter(
                 Q(drill__assistant_coach=user) |
                 Q(practice_plan__assign_team__in=assistant_team_ids)
             ).distinct()
-    
+
         else:
             # Player — শুধু নিজের assigned drill এর block দেখতে পারবে
             return Block.objects.filter(
@@ -203,28 +203,25 @@ class BlockViewSet(viewsets.ModelViewSet):
     def retrieve(self, request, *args, **kwargs):
         try:
             block_id = kwargs.get('pk')
-
-            if not Block.objects.filter(id=block_id).exists():
+    
+            # Block exist করে কিনা
+            try:
+                instance = Block.objects.get(id=block_id)
+            except Block.DoesNotExist:
                 return Response({
                     'status': 'error',
                     'message': f'Block with ID {block_id} does not exist'
                 }, status=status.HTTP_404_NOT_FOUND)
-
-            try:
-                instance = self.get_object()
-            except Http404:
-                return Response({
-                    'status': 'error',
-                    'message': 'Access denied',
-                    'detail': 'You do not have permission to view this block'
-                }, status=status.HTTP_403_FORBIDDEN)
-
+    
+            # Permission check
+            self.check_object_permissions(request, instance)
+    
             serializer = self.get_serializer(instance)
             return Response({
                 'status': 'success',
                 'data': serializer.data
             }, status=status.HTTP_200_OK)
-
+    
         except Exception as e:
             return Response({
                 'status': 'error',
