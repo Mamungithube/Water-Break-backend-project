@@ -51,21 +51,28 @@ def send_email_task(subject, body, recipient_list, is_html=True):
 @shared_task(name="send_otp_email", max_retries=3)
 def send_otp_email_task(user_email, otp):
     from django.template.loader import render_to_string
+    from django.conf import settings
+    import resend
+
     try:
-        subject = 'Your OTP Code - Verify Your Account'
-        html_content = render_to_string('send_code.html', {'otp': otp, 'user': {'email': user_email}})
-        
-        msg = EmailMessage(
-            subject=subject,
-            body=html_content,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[user_email],
+        resend.api_key = settings.RESEND_API_KEY
+
+        html_content = render_to_string(
+            'send_code.html', 
+            {'otp': otp, 'user': {'email': user_email}}
         )
-        msg.content_subtype = "html"
-        msg.send()
-        logger.info(f"OTP email successfully sent to {user_email}")
+
+        params = {
+            "from": "Water Break <onboarding@resend.dev>",
+            "to": [user_email],
+            "subject": "Your OTP Code - Verify Your Account",
+            "html": html_content,
+        }
+
+        resend.Emails.send(params)
+        logger.info(f"OTP email sent to {user_email}")
         return f"OTP email sent to {user_email}"
+
     except Exception as exc:
         logger.error(f"Failed to send OTP email to {user_email}: {str(exc)}")
-        # Retry after 60 seconds
         raise send_otp_email_task.retry(exc=exc, countdown=60)
