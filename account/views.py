@@ -439,7 +439,7 @@ class ResendOTPApiView(APIView):
             msg = EmailMessage(
                 subject='Your New OTP Code',
                 body=html_content,
-                from_email=settings.EMAIL_HOST_USER,
+                from_email=settings.DEFAULT_FROM_EMAIL,
                 to=[email],
             )
             msg.content_subtype = "html"

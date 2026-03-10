@@ -155,16 +155,31 @@ class BlockViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
 
-        if user.role in ['coach', 'assistant']:
-            # ✅ CHANGE - Coach sees their own blocks, assistant sees blocks of assigned drills
-            if user.role == 'coach':
-                return Block.objects.filter(drill__create_By=user)
-            else:  # assistant
-                return Block.objects.filter(drill__assistant_coach=user) | Block.objects.filter(drill__create_By=user)
-        else:
-            # ✅ CHANGE - Regular members can see blocks of their assigned drills
-            return Block.objects.filter(drill__assigned_members=user).distinct()
+        if user.role == 'coach':
+            return Block.objects.filter(
+                Q(drill__create_By=user) |
+                Q(practice_plan__create_By=user)
+            ).distinct()
 
+        elif user.role == 'assistant':
+            from teamapp.models import TeamMember
+
+            assistant_team_ids = TeamMember.objects.filter(
+                member=user,
+                role='assistant',
+                is_role_approved=True
+            ).values_list('team_id', flat=True)
+
+            return Block.objects.filter(
+                Q(drill__assistant_coach=user) |
+                Q(drill__create_By=user) |
+                Q(practice_plan__assign_team__in=assistant_team_ids) 
+            ).distinct()
+
+        else:
+            return Block.objects.filter(
+                drill__assigned_members=user
+            ).distinct()
     def perform_create(self, serializer):
         serializer.save()
 
