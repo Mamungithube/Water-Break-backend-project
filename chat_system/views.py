@@ -111,11 +111,6 @@ class TeamChatHistoryView(APIView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-        
-
-
-
-# views.py
 
 class NotificationListView(APIView):
     permission_classes = [IsAuthenticated]

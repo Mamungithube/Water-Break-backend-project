@@ -13,7 +13,7 @@ def send_due_reminders_task():
         user = r.created_for
         message = f"Reminder: Your activity '{r.content_object}' is starting soon!"
 
-        # ইন-অ্যাপ নটিফিকেশন তৈরি (এটি তৈরি হওয়ামাত্র account/signals.py পুশ পাঠিয়ে দেবে)
+        # Create in-app notification (it will send push to account/signals.py as soon as it is created)
         Notification.objects.create(
             recipient=user,
             sender=user,
@@ -21,7 +21,7 @@ def send_due_reminders_task():
             message=message
         )
 
-        # ইমেইল রিমাইন্ডার (Celery টাস্ক এর ভেতর থেকে আরেকটা টাস্ক কল করা)
+        # Email reminder (calling another task from within a Celery task)
         if r.method_email:
             from account.tasks import send_email_task
             send_email_task.delay("Practice Reminder", message, [user.email])

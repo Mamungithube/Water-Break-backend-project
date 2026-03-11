@@ -571,7 +571,6 @@ class LoginAPIView(APIView, BaseResponseMixin):
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
 
-        # ১. ডাটা ভ্যালিডেশন চেক
         if not serializer.is_valid():
             return self.error_response(
                 message="Invalid input.",
@@ -582,17 +581,15 @@ class LoginAPIView(APIView, BaseResponseMixin):
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
 
-        # ২. ইমেইল চেক (ইমেইল না থাকলে "Email not found")
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
             return self.error_response(
-                message="Email not found",  # আপনার চাহিদা অনুযায়ী
+                message="Email not found", 
                 data={"is_active": False},
                 status_code=status.HTTP_404_NOT_FOUND
             )
 
-        # ৩. পাসওয়ার্ড চেক (পাসওয়ার্ড ভুল হলে "Password wrong")
         if not user.check_password(password):
             return self.error_response(
                 message="Password wrong",
@@ -600,7 +597,6 @@ class LoginAPIView(APIView, BaseResponseMixin):
                 status_code=status.HTTP_400_BAD_REQUEST
             )
 
-        # ৪. অ্যাকাউন্ট একটিভেশন চেক (is_active না হলে "User not active")
         if not user.is_active:
             return self.error_response(
                 message="User not active",
@@ -608,7 +604,6 @@ class LoginAPIView(APIView, BaseResponseMixin):
                 status_code=status.HTTP_403_FORBIDDEN
             )
 
-        # ৫. সব ঠিক থাকলে সফল লগইন
         user.backend = 'django.contrib.auth.backends.ModelBackend'
         login(request, user)
 
@@ -724,11 +719,9 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
             end = start + page_size
             paginated_notifications = queryset[start:end]
 
-            # ✅ আগে serialize করো (আগের state capture)
             serializer = self.get_serializer(paginated_notifications, many=True)
             response_data = serializer.data
 
-            # ✅ তারপর সব unread গুলো bulk update করো
             self.get_queryset().filter(is_read=False).update(is_read=True)
 
             return Response({
@@ -739,7 +732,7 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
                     "page": page,
                     "page_size": page_size,
                     "total_pages": (total_count + page_size - 1) // page_size,
-                    "notifications": response_data,  # ✅ আগের state
+                    "notifications": response_data,
                 },
             }, status=status.HTTP_200_OK)
 
@@ -756,7 +749,6 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
                 "errors": {"detail": [str(e)]},
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # ✅ নতুন API — unread count
     @action(detail=False, methods=['get'], url_path='unread-count')
     def unread_count(self, request):
         """GET /notifications/unread-count/ — is_read=false এর সংখ্যা দেবে।"""

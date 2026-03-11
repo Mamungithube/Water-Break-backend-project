@@ -80,7 +80,7 @@ class TeamMemberSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['is_role_approved', 'joined_at', 'member_email']
 
-        # এখানে team_position কে স্পষ্টভাবে রিকোয়ার্ড করে দিন
+        # Please explicitly require team_position here.
         extra_kwargs = {
             'team_position': {
                 'required': False,
@@ -93,7 +93,6 @@ class TeamMemberSerializer(serializers.ModelSerializer):
         return f"{obj.member.first_name} {obj.member.last_name}".strip() or obj.member.email
 
     def validate(self, attrs):
-        # আপনার বর্তমান ভ্যালিডেশন কোড...
         team = attrs.get('team')
         member = attrs.get('member')
         team_position = attrs.get('team_position')

@@ -1,11 +1,8 @@
 from rest_framework import serializers
 from .utils import generate_otp
-from django.core.mail import send_mail, EmailMessage
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import User, Profile, Notification, DeviceToken
 from django.contrib.auth import get_user_model, password_validation
-from django.template.loader import render_to_string
-from django.conf import settings
 from .tasks import send_otp_email_task
 from django.utils import timezone 
 
@@ -55,7 +52,6 @@ class RegistrationSerializer(serializers.ModelSerializer):
         otp = generate_otp()
         Profile.objects.create(user=user, otp=otp, otp_created_at=timezone.now())
 
-        # ✅ Async - request block হবে না
         send_otp_email_task.delay(user.email, otp)
 
         return user

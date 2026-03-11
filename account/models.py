@@ -80,11 +80,11 @@ class Profile(models.Model):
 
 class Notification(models.Model):
     NOTIFICATION_TYPES = (
-        ('join_request', 'Join Request'),         # কোচের জন্য
-        ('request_accepted', 'Request Accepted'),  # প্লেয়ারের জন্য
+        ('join_request', 'Join Request'),        
+        ('request_accepted', 'Request Accepted'), 
         ('team_message', 'Team Message'),
-        ('assignment', 'New Assignment'),         # প্ল্যান/ব্লক/ড্রিল এর জন্য
-        ('reminder', 'Practice Reminder'),        # রিমাইন্ডার এর জন্য
+        ('assignment', 'New Assignment'),       
+        ('reminder', 'Practice Reminder'),
     )
 
     recipient = models.ForeignKey(

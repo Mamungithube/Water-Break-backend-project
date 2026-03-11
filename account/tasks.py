@@ -26,7 +26,7 @@ def send_fcm_notification_task(user_id, title, body, data=None):
 @shared_task(name="send_email_task")
 def send_email_task(subject, body, recipient_list, is_html=True):
     from django.conf import settings
-    import resend
+    import resend # type: ignore
     try:
         resend.api_key = settings.RESEND_API_KEY
         params = {
@@ -45,7 +45,7 @@ def send_email_task(subject, body, recipient_list, is_html=True):
 def send_otp_email_task(user_email, otp):
     from django.template.loader import render_to_string
     from django.conf import settings
-    import resend
+    import resend # type: ignore
     try:
         resend.api_key = settings.RESEND_API_KEY
         html_content = render_to_string(

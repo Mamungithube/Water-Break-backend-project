@@ -3,7 +3,7 @@ from .models import Privacy_Policy, TermsAndConditions, AboutUs
 # Register your models here.
 
 from django.contrib import admin
-from unfold.admin import ModelAdmin # Unfold ModelAdmin
+from unfold.admin import ModelAdmin
 
 @admin.register(Privacy_Policy)
 class PrivacyPolicyAdmin(ModelAdmin):

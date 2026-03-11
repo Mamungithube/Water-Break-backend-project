@@ -177,7 +177,7 @@ def revenuecat_webhook(request):
 
         subscription.save()
 
-        # ✅ যেকোনো paid plan কিনলে role → coach
+        # ✅ If you buy any paid plan, role → coach
         if plan.name != 'free' and user.role != 'coach':
             user.role = 'coach'
             user.save(update_fields=['role'])

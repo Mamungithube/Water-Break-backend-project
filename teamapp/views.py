@@ -8,16 +8,13 @@ from django.utils import timezone
 from datetime import timedelta
 from .models import TeamMember, InvitationToken, Team
 from .serializers import TeamMemberSerializer, InvitationTokenSerializer, JoinTeamSerializer, teamserializers
-from django.core.mail import send_mail
-from django.conf import settings
-from channels.layers import get_channel_layer
-from asgiref.sync import async_to_sync
 from account.models import Notification
 from django.db.models import Q
 from subscription.permissions import CanCreateTeam
 import logging
 from rest_framework.exceptions import ValidationError
 logger = logging.getLogger(__name__)
+
 
 # Create your views here.
 """=============================Team view set==========================================="""

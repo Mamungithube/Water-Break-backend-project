@@ -65,10 +65,10 @@ class TeamChatConsumer(AsyncWebsocketConsumer):
                 print("⚠️ No message content found.")
                 return
                 
-            # Message save করুন
+            # Message save
             saved = await self.save_message(message)
             
-            # Team chat এ real-time message পাঠান
+            # Send real-time messages in team chat
             await self.channel_layer.group_send(
                 self.group_name,
                 {
@@ -101,7 +101,7 @@ class TeamChatConsumer(AsyncWebsocketConsumer):
                     # Real-time WebSocket notification
                     await self.channel_layer.group_send(f"user_{uid}", notification_payload)
                     
-                    # Database এ notification save করুন
+                    # Save notification to database.
                     await self.save_notification(uid, saved)
                     
             except Exception as e:

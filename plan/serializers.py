@@ -130,7 +130,7 @@ class BlockSerializer(serializers.ModelSerializer):
                 return value
             if value.assistant_coach == user:
                 return value
-            # Assistant হলে drill এর team এ থাকলেও চলবে
+            # If you are an assistant, you can still be on the drill team.
             from teamapp.models import TeamMember
             drill_team_ids = value.assign_team.values_list('id', flat=True)
             is_assistant = TeamMember.objects.filter(
@@ -157,7 +157,7 @@ class BlockSerializer(serializers.ModelSerializer):
                         "You can only assign blocks to your own practice plans."
                     )
             else:
-                # Assistant — plan এর assign_team এ থাকলেই চলবে
+                # Assistant — Only works if it is in the plan's assign_team
                 plan_team_ids = value.assign_team.values_list('id', flat=True)
                 is_assistant = TeamMember.objects.filter(
                     member=user,

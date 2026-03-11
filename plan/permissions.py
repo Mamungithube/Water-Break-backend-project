@@ -16,7 +16,7 @@ def is_assistant(user):
     ).exists()
 
 
-# ✅ শুধু Coach এর জন্য
+# ✅ Only for Coach
 class IsCoachOnly(permissions.BasePermission):
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
@@ -31,7 +31,7 @@ class IsCoachOnly(permissions.BasePermission):
         return request.user.role == 'coach' and obj.create_By == request.user
 
 
-# ✅ Coach + Assistant Block এর জন্য
+# ✅ For Coach + Assistant Block
 class IsCoachOrAssistantForBlock(permissions.BasePermission):
     def has_permission(self, request, view):
         user = request.user
@@ -39,7 +39,7 @@ class IsCoachOrAssistantForBlock(permissions.BasePermission):
             return False
         if request.method in permissions.SAFE_METHODS:
             return True
-        # Coach অথবা যেকোনো team এ approved assistant
+        # Coach or approved assistant on any team
         return user.role == 'coach' or is_assistant(user)
 
     def has_object_permission(self, request, view, obj):
@@ -48,7 +48,7 @@ class IsCoachOrAssistantForBlock(permissions.BasePermission):
         if request.method in permissions.SAFE_METHODS:
             return True
 
-        # Coach — নিজের drill বা plan এর block
+        # Coach block of your own drill or plan
         if user.role == 'coach':
             if obj.drill:
                 return obj.drill.create_By == user
@@ -56,7 +56,7 @@ class IsCoachOrAssistantForBlock(permissions.BasePermission):
                 return obj.practice_plan.create_By == user
             return obj.create_By == user
 
-        # Assistant — plan এর assign_team এ থাকলে
+        # Assistant If in plan's assign_team
         if is_assistant(user):
             assistant_team_ids = get_assistant_team_ids(user)
 
@@ -69,7 +69,7 @@ class IsCoachOrAssistantForBlock(permissions.BasePermission):
                     is_role_approved=True
                 ).exists()
 
-            # drill এর assistant_coach হলেও চলবে
+            # Even if it's an assistant_coach for the drill, it will work.
             if obj.drill and obj.drill.assistant_coach == user:
                 return True
 

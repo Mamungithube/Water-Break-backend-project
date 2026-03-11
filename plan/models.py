@@ -2,13 +2,10 @@ from django.db import models
 from django.utils import timezone
 from django.conf import settings
 from datetime import datetime, date, time, timedelta
-
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
-
 from django.db.models.signals import post_save, m2m_changed
 from django.dispatch import receiver
-
 from django.db.models.signals import m2m_changed
 from account.models import Notification
 
@@ -68,17 +65,6 @@ class Block(models.Model):
         drill_name = self.drill.name if self.drill else "No Drill"
         return f"{drill_name} - {self.title}"
     
-
-# class Notification(models.Model):
-#     """Simple in-app notification stored for a user."""
-#     user = models.ForeignKey('account.User', on_delete=models.CASCADE, related_name='plan_notifications')
-#     title = models.CharField(max_length=255)
-#     message = models.TextField()
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     read = models.BooleanField(default=False)
-
-#     def __str__(self):
-#         return f"Notification for {self.user.email}: {self.title}"
 
 
 class Reminder(models.Model):
@@ -242,7 +228,7 @@ def notify_team_on_plan_assignment(sender, instance, action, pk_set, **kwargs):
     if action == "post_add":
         for team_id in pk_set:
             from teamapp.models import TeamMember
-            # টিমের সব অ্যাপ্রুভড মেম্বারদের খুঁজে বের করা
+            # Finding all approved team members
             memberships = TeamMember.objects.filter(team_id=team_id, is_role_approved=True)
             for member_ship in memberships:
                 Notification.objects.create(

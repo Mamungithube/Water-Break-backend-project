@@ -173,9 +173,9 @@ class ProcessedWebhookEventAdmin(ModelAdmin):
     )
     
     def has_add_permission(self, request):
-        # Webhook events শুধু automatically create হবে
+        
         return False
     
     def has_change_permission(self, request, obj=None):
-        # Webhook events edit করা যাবে না
+       
         return False

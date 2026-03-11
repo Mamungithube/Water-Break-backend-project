@@ -1,13 +1,13 @@
 
 from django.db import models
 from django.utils import timezone
-import uuid
 from datetime import timedelta
+import uuid
+from django.conf import settings
+from django.core.exceptions import ValidationError
 
 
 """=========================Team Member Model========================="""
-from django.conf import settings
-from django.core.exceptions import ValidationError
 
 class Team(models.Model):
     coach = models.ForeignKey(
