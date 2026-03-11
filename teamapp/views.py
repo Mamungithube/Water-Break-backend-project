@@ -27,8 +27,8 @@ class teamviewset(viewsets.ModelViewSet):
 
     def get_permissions(self):
         """
-        Create action শুধুমাত্র Coach বা Assistant করতে পারবে
-        অন্যান্য action-এ শুধু IsAuthenticated যথেষ্ট
+        Only Coach or Assistant can do the Create action
+        For other actions, just IsAuthenticated is enough
         """
         if self.action == 'create':
             return [IsAuthenticated(), IsCoachOrAssistant(), CanCreateTeam()]
@@ -40,7 +40,7 @@ class teamviewset(viewsets.ModelViewSet):
         if user.role == 'coach':
             return Team.objects.filter(coach=user)
 
-        # members ManyToMany field দিয়ে filter - শুধু approved members
+        #  filter by members ManyToMany field - only approved members
         return Team.objects.filter(
             memberships__member=user,
             memberships__is_role_approved=True
@@ -202,32 +202,32 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
         user = self.request.user
         params = self.request.query_params
 
-        # Performance optimization: select_related ব্যবহার করা হয়েছে
+        # Performance optimization: select_related used
         queryset = TeamMember.objects.select_related(
             'member__profile', 'team').all()
 
-        # ১. বেস ফিল্টারিং (কে কতটুকু ডাটা দেখতে পারবে)
+        # ১. Base filtering (who can see how much data)
 
-        # ইউজার যদি কোনো টিমে 'assistant' হয় (approved)
+        # If the user is an 'assistant' in a team (approved)
         is_assistant_anywhere = TeamMember.objects.filter(
             member=user, role='assistant', is_role_approved=True
         ).exists()
 
         if user.role == 'coach':
-            # কোচ তার নিজের টিমের সব মেম্বার দেখবে (approved + pending)
+            # The coach will see all members of his own team (approved + pending)
             queryset = queryset.filter(team__coach=user)
         elif is_assistant_anywhere:
-            # অ্যাসিস্ট্যান্ট তার নিজের টিমের মেম্বার এবং অন্যান্য অ্যাপ্রুভড মেম্বারদের দেখবে
-            # (লজিক আপনার প্রয়োজন অনুযায়ী ছোট-বড় করতে পারেন)
+            # Assistant will see his own team members and other approved members
+            # (Logic can be scaled to your needs)
             queryset = queryset.filter(
                 Q(team__memberships__member=user, team__memberships__role='assistant') |
                 Q(is_role_approved=True)
             ).distinct()
         else:
-            # সাধারণ প্লেয়াররা শুধু অ্যাপ্রুভড মেম্বারদের দেখবে
+            # General players will only see approved members
             queryset = queryset.filter(is_role_approved=True)
 
-        # ২. ডাইনামিক ফিল্টারিং (Query Params)
+        # ২. Dynamic Filtering (Query Params)
         team_param = params.get('team')
         team_name = params.get('team_name')
         role = params.get('role')
@@ -294,7 +294,7 @@ class TeamMemberViewSet(viewsets.ModelViewSet):
             membership.is_role_approved = True
             membership.save()
 
-            # প্লেয়ারকে নটিফিকেশন পাঠানো
+            # Sending notifications to players
             Notification.objects.create(
                 recipient=membership.member,
                 sender=request.user,
