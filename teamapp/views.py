@@ -13,6 +13,10 @@ from django.db.models import Q
 from subscription.permissions import CanCreateTeam
 import logging
 from rest_framework.exceptions import ValidationError
+from plan.permissions import (
+    IsCoachOrAssistantForBlock as IsCoachOrAssistant,
+    IsCoachOnly,
+)
 logger = logging.getLogger(__name__)
 
 
