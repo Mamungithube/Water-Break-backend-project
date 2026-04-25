@@ -1,4 +1,5 @@
 amqp==5.3.1
+annotated-types==0.7.0
 anyio==4.12.1
 asgiref==3.11.0
 attrs==25.4.0
@@ -61,6 +62,7 @@ inflection==0.5.1
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
 kombu==5.6.2
+mailtrap==2.5.0
 msgpack==1.1.2
 oauthlib==3.3.1
 packaging==25.0
@@ -73,6 +75,8 @@ py-ubjson==0.16.1
 pyasn1==0.6.1
 pyasn1_modules==0.4.2
 pycparser==2.23
+pydantic==2.13.3
+pydantic_core==2.46.3
 PyJWT==2.10.1
 pyOpenSSL==25.3.0
 pyparsing==3.2.5
@@ -84,7 +88,6 @@ redis==7.1.0
 referencing==0.37.0
 requests==2.32.5
 requests-oauthlib==2.0.0
-resend==2.23.0
 rpds-py==0.30.0
 rsa==4.9.1
 service-identity==24.2.0
@@ -92,6 +95,7 @@ six==1.17.0
 sqlparse==0.5.4
 Twisted==25.5.0
 txaio==25.12.2
+typing-inspection==0.4.2
 typing_extensions==4.15.0
 tzdata==2025.2
 tzlocal==5.3.1

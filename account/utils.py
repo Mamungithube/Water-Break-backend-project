@@ -15,7 +15,7 @@ def send_join_request_email(coach, user, team):
             f"{user.email} wants to join your team '{team.name}'.\n\n"
             "Please login to approve or reject the request."
         ),
-        from_email=settings.EMAIL_HOST_USER,
+        from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[coach.email],
         fail_silently=False,
     )

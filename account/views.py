@@ -368,7 +368,7 @@ class VerifyOTPApiView(APIView):
         # Check if OTP has expired (1 minute validity)
         if profile.otp_created_at:
             elapsed_time = timezone.now() - profile.otp_created_at
-            if elapsed_time > timedelta(minutes=1):
+            if elapsed_time > timedelta(minutes=5):
                 return Response(
                     {
                         "success": False,
@@ -430,6 +430,7 @@ class ResendOTPApiView(APIView):
         user = get_object_or_404(User, email=email)
         otp_code = generate_otp()
         user.profile.otp = otp_code
+        user.profile.otp_created_at = timezone.now()
         user.profile.save()
 
         html_content = render_to_string(

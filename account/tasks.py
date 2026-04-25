@@ -25,17 +25,27 @@ def send_fcm_notification_task(user_id, title, body, data=None):
 
 @shared_task(name="send_email_task")
 def send_email_task(subject, body, recipient_list, is_html=True):
+    from django.core.mail import send_mail
     from django.conf import settings
-    import resend # type: ignore
     try:
-        resend.api_key = settings.RESEND_API_KEY
-        params = {
-            "from": "Water Break <onboarding@resend.dev>",
-            "to": recipient_list,
-            "subject": subject,
-            "html": body if is_html else f"<p>{body}</p>",
-        }
-        resend.Emails.send(params)
+        if is_html:
+            from django.core.mail import EmailMultiAlternatives
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=body,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=recipient_list
+            )
+            email.attach_alternative(body, "text/html")
+            email.send()
+        else:
+            send_mail(
+                subject=subject,
+                message=body,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=recipient_list,
+                fail_silently=False,
+            )
         return f"Email sent to {recipient_list}"
     except Exception as e:
         return f"Email failed: {str(e)}"
@@ -45,20 +55,20 @@ def send_email_task(subject, body, recipient_list, is_html=True):
 def send_otp_email_task(user_email, otp):
     from django.template.loader import render_to_string
     from django.conf import settings
-    import resend # type: ignore
+    from django.core.mail import EmailMultiAlternatives
     try:
-        resend.api_key = settings.RESEND_API_KEY
         html_content = render_to_string(
             'send_code.html',
             {'otp': otp, 'user': {'email': user_email}}
         )
-        params = {
-            "from": "Water Break <onboarding@resend.dev>",
-            "to": [user_email],
-            "subject": "Your OTP Code - Verify Your Account",
-            "html": html_content,
-        }
-        resend.Emails.send(params)
+        email = EmailMultiAlternatives(
+            subject="Your OTP Code - Verify Your Account",
+            body="Your OTP Code - Verify Your Account",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[user_email]
+        )
+        email.attach_alternative(html_content, "text/html")
+        email.send()
         logger.info(f"OTP email sent to {user_email}")
         return f"OTP email sent to {user_email}"
     except Exception as exc:
