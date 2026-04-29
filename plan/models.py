@@ -172,10 +172,11 @@ def create_drill_reminders(sender, instance, created, **kwargs):
         schedule_reminders_for_object(instance, send_at=send_at)
 
 
-# ✅ NEW SIGNAL - Trigger when assigned_members change in a drill
+# ✅ NEW SIGNAL - Trigger when assigned_members change in
 @receiver(m2m_changed, sender=Drill.assigned_members.through)
 def drill_assigned_members_changed(sender, instance, action, pk_set, **kwargs):
     """When assigned_members are added to a drill, send reminders"""
+    print(f"🔔 SIGNAL FIRED: action={action}, drill={instance.name}, pk_set={pk_set}", flush=True)
     if action == 'post_add' and pk_set:
         send_at = timezone.now()
         schedule_reminders_for_object(instance, send_at=send_at)

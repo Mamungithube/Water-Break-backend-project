@@ -54,6 +54,16 @@ class DrillSerializer(serializers.ModelSerializer):
             ).data
         }
 
+    def update(self, instance, validated_data):
+        assigned_users = validated_data.pop("assigned_users", None)
+        instance = super().update(instance, validated_data)
+        if assigned_users is not None:
+            instance.assigned_members.set(assigned_users)
+            from plan.models import schedule_reminders_for_object
+            from django.utils import timezone
+            schedule_reminders_for_object(instance, send_at=timezone.now())
+        return instance
+
     def create(self, validated_data):
         assigned_users = validated_data.pop('assigned_users', [])
 
@@ -191,6 +201,16 @@ class BlockSerializer(serializers.ModelSerializer):
 
         return attrs
 
+    def update(self, instance, validated_data):
+        assigned_users = validated_data.pop("assigned_users", None)
+        instance = super().update(instance, validated_data)
+        if assigned_users is not None:
+            instance.assigned_members.set(assigned_users)
+            from plan.models import schedule_reminders_for_object
+            from django.utils import timezone
+            schedule_reminders_for_object(instance, send_at=timezone.now())
+        return instance
+
     def create(self, validated_data):
         user = self.context['request'].user
         validated_data['create_By'] = user
@@ -247,7 +267,8 @@ class BlockSerializer(serializers.ModelSerializer):
 
                 drill.assign_team.set(team_ids)
 
-            if 'assigned_members' in drill_details_data:
+            print("DEBUG drill_details_data:", drill_details_data)
+            if "assigned_members" in drill_details_data:
                 member_ids = drill_details_data['assigned_members']
 
                 if instance.practice_plan:
@@ -263,6 +284,9 @@ class BlockSerializer(serializers.ModelSerializer):
                             )
 
                 drill.assigned_members.set(member_ids)
+                from plan.models import schedule_reminders_for_object
+                from django.utils import timezone
+                schedule_reminders_for_object(drill, send_at=timezone.now())
 
             if 'assistant_coach' in drill_details_data:
                 assistant_id = drill_details_data['assistant_coach']
@@ -366,6 +390,16 @@ class planSerializer(serializers.ModelSerializer):
 
         unique_assistants = {a['id']: a for a in assistant_list}
         return list(unique_assistants.values())
+
+    def update(self, instance, validated_data):
+        assigned_users = validated_data.pop("assigned_users", None)
+        instance = super().update(instance, validated_data)
+        if assigned_users is not None:
+            instance.assigned_members.set(assigned_users)
+            from plan.models import schedule_reminders_for_object
+            from django.utils import timezone
+            schedule_reminders_for_object(instance, send_at=timezone.now())
+        return instance
 
     def create(self, validated_data):
         blocks_data = validated_data.pop('blocks_data', [])

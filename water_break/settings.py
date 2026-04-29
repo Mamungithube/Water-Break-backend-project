@@ -112,7 +112,7 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 10,
     "DATETIME_FORMAT": "%Y-%m-%d %H:%M:%S",
 }
-
+REMINDER_DEFAULT_OFFSET_MINUTES = 15
 
 # ==================== JWT ====================
 
