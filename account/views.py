@@ -426,17 +426,15 @@ class VerifyOTPApiView(APIView):
 
 class ResendOTPApiView(APIView):
     def post(self, request, *args, **kwargs):
-        email = request.data.get('email')
-        user = get_object_or_404(User, email=email)
-        otp_code = generate_otp()
-        user.profile.otp = otp_code
-        user.profile.otp_created_at = timezone.now()
-        user.profile.save()
-
-        html_content = render_to_string(
-            'send_code.html', {'otp': otp_code, 'user': user})
-
         try:
+            email = request.data.get('email')
+            user = get_object_or_404(User, email=email)
+            otp_code = generate_otp()
+            user.profile.otp = otp_code
+            user.profile.otp_created_at = timezone.now()
+            user.profile.save()
+            html_content = render_to_string(
+                'send_code.html', {'otp': otp_code, 'user': user})
             msg = EmailMessage(
                 subject='Your New OTP Code',
                 body=html_content,
@@ -445,11 +443,11 @@ class ResendOTPApiView(APIView):
             )
             msg.content_subtype = "html"
             msg.send()
-
             return Response({'Message': "OTP has been Resend To Your email. please check your email inbox"}, status=status.HTTP_200_OK)
-
         except Exception as e:
-            return Response({"Error": f'Failed to send email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            import traceback
+            traceback.print_exc()
+            return Response({"Error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 """ ----------------Forgot Password view------------------- """
