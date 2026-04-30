@@ -117,24 +117,29 @@ def schedule_reminders_for_object(obj, send_at=None, offset_minutes=None):
             
             if drill.assistant_coach:
                 users.add(drill.assistant_coach)
+
+        # FIX: Plan-এর assigned team members যোগ করো
+        if obj.practice_plan:
+            for team in obj.practice_plan.assign_team.all():
+                from teamapp.models import TeamMember
+                for membership in TeamMember.objects.filter(team=team, is_role_approved=True):
+                    users.add(membership.member)
         
         if send_at is None:
-            # Use practice_plan date if available, otherwise use tomorrow
+            # Plan এর local date থেকে Block এর date নাও
             if obj.practice_plan and obj.practice_plan.start_practice_time:
-                plan_date = obj.practice_plan.start_practice_time.date()
+                plan_local = timezone.localtime(obj.practice_plan.start_practice_time)
+                plan_date = plan_local.date()
             else:
-                plan_date = now.date() + timedelta(days=1)
-            
+                plan_date = timezone.localtime(now).date()
+
             start_dt = datetime.combine(plan_date, obj.start_time)
             start_dt = timezone.make_aware(start_dt, timezone.get_current_timezone())
-            
-            if start_dt < now:
-                start_dt = start_dt + timedelta(days=1)
-            
-            send_at = start_dt - timedelta(minutes=offset_minutes)
 
+            # পার হলে কালকে না, যা আছে তাই রাখো
+            send_at = start_dt - timedelta(minutes=offset_minutes)
     elif isinstance(obj, Plan):
-        # ✅ CHANGE - assigned_members and assistant_coach of the drill for all blocks in the Plan
+        # assigned_members and assistant_coach of the drill for all blocks in the Plan
         for block in obj.Plan_Block.all():
             drill = block.drill
             if drill:
@@ -162,6 +167,27 @@ def schedule_reminders_for_object(obj, send_at=None, offset_minutes=None):
                 'method_notification': True,
             }
         )
+        # Also create reminder at exact practice time
+        exact_time = None
+        if isinstance(obj, Plan) and obj.start_practice_time:
+            exact_time = obj.start_practice_time
+        elif isinstance(obj, Block) and obj.practice_plan and obj.practice_plan.start_practice_time:
+            plan_local = timezone.localtime(obj.practice_plan.start_practice_time)
+            plan_date = plan_local.date()
+            start_dt = datetime.combine(plan_date, obj.start_time)
+            exact_time = timezone.make_aware(start_dt, timezone.get_current_timezone())
+        if exact_time and exact_time != send_at:
+            for user in users:
+                Reminder.objects.get_or_create(
+                    content_type=ct,
+                    object_id=obj.id,
+                    created_for=user,
+                    send_at=exact_time,
+                    defaults={
+                        'method_email': True,
+                        'method_notification': True,
+                    }
+                )
 
 
 
@@ -188,32 +214,25 @@ def drill_assign_team_changed(sender, instance, action, pk_set, **kwargs):
         send_at = timezone.now()
         schedule_reminders_for_object(instance, send_at=send_at)
 
-
+@receiver(post_save, sender=Block)
+@receiver(post_save, sender=Block)
 @receiver(post_save, sender=Block)
 def create_block_reminders(sender, instance, created, **kwargs):
     if created:
         offset = _get_offset_minutes()
         now = timezone.now()
-        
-        # Determine the date for the block
+
+        # Plan এর local date থেকে Block এর date নাও
         if instance.practice_plan and instance.practice_plan.start_practice_time:
-            # Use practice plan's date
-            plan_date = instance.practice_plan.start_practice_time.date()
+            plan_local = timezone.localtime(instance.practice_plan.start_practice_time)
+            plan_date = plan_local.date()
         else:
-            # Default to tomorrow
-            plan_date = now.date() + timedelta(days=1)
-        
-        # Combine date with block's start_time
+            plan_date = timezone.localtime(now).date()
+
         start_dt = datetime.combine(plan_date, instance.start_time)
         start_dt = timezone.make_aware(start_dt, timezone.get_current_timezone())
-        
-        # If the time has already passed today, schedule for tomorrow
-        if start_dt < now:
-            start_dt = start_dt + timedelta(days=1)
-        
-        # Calculate send_at (offset minutes before start_time)
+
         send_at = start_dt - timedelta(minutes=offset)
-        
         schedule_reminders_for_object(instance, send_at=send_at)
 
 @receiver(post_save, sender=Plan)
@@ -235,8 +254,14 @@ def notify_team_on_plan_assignment(sender, instance, action, pk_set, **kwargs):
                 Notification.objects.create(
                     recipient=member_ship.member,
                     sender=instance.create_By,
-                    notification_type='assignment',
+                    notification_type="assignment",
                     message=f"A new practice plan '{instance.plan_title}' has been assigned to your team."
+                )
+                from account.tasks import send_email_task
+                send_email_task.delay(
+                    'New Practice Plan Assigned',
+                    f"A new practice plan '{instance.plan_title}' has been assigned to your team.",
+                    [member_ship.member.email]
                 )
 
 @receiver(m2m_changed, sender=Drill.assign_team.through)
@@ -249,6 +274,12 @@ def notify_team_on_drill_assignment(sender, instance, action, pk_set, **kwargs):
                 Notification.objects.create(
                     recipient=member_ship.member,
                     sender=instance.create_By,
-                    notification_type='assignment',
+                    notification_type="assignment",
                     message=f"A new drill '{instance.name}' has been assigned to your team."
+                )
+                from account.tasks import send_email_task
+                send_email_task.delay(
+                    'New Drill Assigned',
+                    f"A new drill '{instance.name}' has been assigned to your team.",
+                    [member_ship.member.email]
                 )
